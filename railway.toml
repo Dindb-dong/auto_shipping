@@ -1,0 +1,6 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "cd server && npm ci && npm run build"
+
+[start]
+startCommand = "cd server && node dist/index.js"
