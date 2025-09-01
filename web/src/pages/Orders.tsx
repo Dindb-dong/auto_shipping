@@ -111,62 +111,65 @@ const Orders = () => {
       </div>
 
       {/* 필터 및 검색 */}
-      <div className="card">
+      <div className="card overflow-hidden">
         <div className="card-body">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex flex-wrap gap-3">
             {/* 검색 */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <div className="relative flex-[2] min-w-[240px] min-w-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="주문번호, 고객명으로 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="input pl-10"
+                className="input w-full pl-10"
               />
             </div>
 
             {/* 상태 필터 */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="input"
-            >
-              <option value="">전체 상태</option>
-              {Object.entries(SHIPPING_STATUS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <div className="flex-1 min-w-[160px] min-w-0">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="input w-full"
+              >
+                <option value="">전체 상태</option>
+                {Object.entries(SHIPPING_STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
 
             {/* 정렬 */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="input"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="flex-1 min-w-[160px] min-w-0">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="input w-full"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* 날짜 범위 */}
-            <div className="flex space-x-2">
+            <div className="flex items-center gap-2 flex-[1.8] min-w-[260px] min-w-0">
               <input
                 type="date"
                 value={dateRange.start}
-                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                className="input"
+                onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
+                className="input w-full min-w-0"
                 placeholder="시작일"
               />
+              <span className="text-gray-400">~</span>
               <input
                 type="date"
                 value={dateRange.end}
-                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                className="input"
+                onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
+                className="input w-full min-w-0"
                 placeholder="종료일"
               />
             </div>
