@@ -1,6 +1,12 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd server && npm ci && npm run build"
+buildCommand = "npm ci && npm run build"
 
 [start]
-startCommand = "cd server && npm run start"
+startCommand = "npm run start"
+
+# 중요: 여기서 server를 루트 디렉토리로 지정
+rootDirectory = "server"
+
+[variables]
+NIXPACKS_NODE_VERSION = "20"
