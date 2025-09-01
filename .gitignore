@@ -1,0 +1,12 @@
+/web/node_modules/*
+/server/node_modules/*
+/web/dist
+/server/dist
+/web/dist.zip
+/server/dist.zip
+/web/dist.zip.sha256
+/server/dist.zip.sha256
+/web/dist.zip.sha256.txt
+/server/dist.zip.sha256.txt
+/web/dist.zip.sha256.txt.sha256
+/server/dist.zip.sha256.txt.sha256
