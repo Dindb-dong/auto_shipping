@@ -1,12 +1,3 @@
+# Docker 사용 설정
 [build]
-builder = "NIXPACKS"
-buildCommand = "npm install && npm run build"
-
-[start]
-startCommand = "npm run start"
-
-# 중요: 여기서 server를 루트 디렉토리로 지정
-rootDirectory = "server"
-
-[variables]
-NIXPACKS_NODE_VERSION = "20"
+builder = "DOCKERFILE"

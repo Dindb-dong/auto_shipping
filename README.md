@@ -106,6 +106,17 @@ cp env.example .env
 npm run dev
 ```
 
+### Docker 사용 (백엔드)
+
+```bash
+# Docker 이미지 빌드
+cd server
+npm run docker:build
+
+# Docker 컨테이너 실행
+npm run docker:run
+```
+
 ### 프로덕션 빌드
 
 ```bash

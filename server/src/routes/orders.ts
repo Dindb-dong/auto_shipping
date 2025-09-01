@@ -25,7 +25,7 @@ router.get('/', async (req: Request, res: Response) => {
     const accessToken = await getValidAccessToken();
 
     // 카페24에서 주문 목록 조회
-    const orders = await cafe24Client.getOrders(accessToken, {
+    const orders: any = await cafe24Client.getOrders(accessToken, {
       start_date: queryParams.start_date,
       end_date: queryParams.end_date,
       status: queryParams.status,
@@ -110,7 +110,7 @@ router.get('/:orderId', async (req: Request, res: Response) => {
       throw new Error(`Order fetch failed: ${error}`);
     }
 
-    const order = await response.json();
+    const order: any = await response.json();
 
     res.json({
       success: true,
@@ -178,7 +178,7 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
 
     for (const status of statuses) {
       try {
-        const orders = await cafe24Client.getOrders(accessToken, {
+        const orders: any = await cafe24Client.getOrders(accessToken, {
           start_date,
           end_date,
           status,
