@@ -67,62 +67,149 @@
 
 - **프론트엔드**: React.js
 - **백엔드**: Node.js
-- **데이터베이스**: MySQL/PostgreSQL
+- **데이터베이스**: Supabase
 - **API 연동**: 카페24 API
 - **인증**: JWT 토큰 기반 인증
 
 ## 📦 설치 및 실행
+
+### 빠른 시작
 
 ```bash
 # 저장소 클론
 git clone [repository-url]
 cd auto_shipping
 
-# 의존성 설치
-npm install
+# 자동 설정 스크립트 실행
+./scripts/setup.sh
 
-# 개발 서버 실행
+# 개발 서버 실행 (백엔드 + 프론트엔드)
+./scripts/quick-start.sh
+```
+
+### 수동 설정
+
+```bash
+# 백엔드 설정
+cd server
+npm install
+cp env.example .env
+# .env 파일 편집
 npm run dev
 
-# 프로덕션 빌드
+# 프론트엔드 설정 (새 터미널)
+cd web
+npm install
+cp env.example .env
+# .env 파일 편집
+npm run dev
+```
+
+### 프로덕션 빌드
+
+```bash
+# 백엔드 빌드
+cd server
+npm run build
+
+# 프론트엔드 빌드
+cd web
 npm run build
 ```
 
 ## 🔐 환경 설정
 
-프로젝트 루트에 `.env` 파일을 생성하고 다음 환경변수를 설정하세요:
+### 백엔드 환경변수 (server/.env)
 
 ```env
+# 환경 설정
+NODE_ENV=development
+PORT=3000
+
 # 카페24 API 설정
-CAFE24_API_URL=your_cafe24_api_url
+MALL_ID=your_mall_id
 CAFE24_CLIENT_ID=your_client_id
 CAFE24_CLIENT_SECRET=your_client_secret
+OAUTH_REDIRECT_URI=http://localhost:3000/oauth/callback
 
 # 데이터베이스 설정
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=auto_shipping
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
+DATABASE_URL=postgresql://username:password@localhost:5432/auto_shipping
 
-# JWT 설정
-JWT_SECRET=your_jwt_secret
-JWT_REFRESH_SECRET=your_refresh_secret
+# 로지뷰 웹훅 인증
+PARTNER_API_KEY=your_partner_api_key
+
+# Cloudflare Access Service Token (Zero Trust)
+CF_ACCESS_CLIENT_ID=your_cf_access_client_id
+CF_ACCESS_CLIENT_SECRET=your_cf_access_client_secret
+
+# 프론트엔드 URL (CORS)
+FRONTEND_URL=http://localhost:5173
+```
+
+### 프론트엔드 환경변수 (web/.env)
+
+```env
+# API 서버 URL
+VITE_API_BASE_URL=http://localhost:3000
+
+# 앱 설정
+VITE_APP_NAME=Auto Shipping
+VITE_APP_VERSION=1.0.0
 ```
 
 ## 📝 API 문서
 
-### 인증 API
+### OAuth API
 
-- `POST /api/auth/login` - 로그인
-- `POST /api/auth/refresh` - 토큰 갱신
-- `POST /api/auth/logout` - 로그아웃
+- `GET /oauth/install` - OAuth 설치 URL 생성
+- `GET /oauth/callback` - OAuth 콜백 처리
+- `GET /oauth/status` - OAuth 상태 확인
 
 ### 주문 API
 
 - `GET /api/orders` - 주문 목록 조회
-- `POST /api/orders/tracking` - 송장번호 입력
-- `PUT /api/orders/tracking` - 송장번호 수정
+- `GET /api/orders/:id` - 특정 주문 상세 조회
+- `GET /api/orders/:id/shipments` - 주문의 배송 로그 조회
+- `GET /api/orders/stats/summary` - 주문 통계 조회
+
+### 웹훅 API
+
+- `POST /webhook/logiview` - 로지뷰 웹훅 수신
+- `POST /webhook/test` - 웹훅 테스트
+- `GET /webhook/status` - 웹훅 상태 확인
+
+### 헬스체크
+
+- `GET /health` - 서버 상태 확인
+
+## 🚀 배포
+
+### 프로덕션 배포
+
+이 시스템은 다음 플랫폼에 배포됩니다:
+
+- **백엔드**: Railway (Express.js)
+- **프론트엔드**: Cloudflare Pages (React)
+- **데이터베이스**: Supabase (PostgreSQL)
+- **접근제어**: Cloudflare Zero Trust
+
+자세한 배포 방법은 [DEPLOYMENT.md](./DEPLOYMENT.md)를 참조하세요.
+
+### 빠른 배포 명령어
+
+```bash
+# 1. Supabase 프로젝트 생성 및 스키마 적용
+# Supabase 대시보드에서 server/supabase-schema.sql 실행
+
+# 2. Railway에 백엔드 배포
+# Railway 대시보드에서 GitHub 리포지토리 연결 (server 폴더)
+
+# 3. Cloudflare Pages에 프론트엔드 배포
+# Cloudflare Pages에서 GitHub 리포지토리 연결 (web 폴더)
+
+# 4. 도메인 및 Zero Trust 설정
+# DEPLOYMENT.md 참조
+```
 
 ## 🤝 기여하기
 
