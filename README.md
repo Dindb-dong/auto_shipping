@@ -65,9 +65,10 @@
 
 ## 🔧 기술 스택
 
-- **프론트엔드**: React.js
-- **백엔드**: Node.js
-- **데이터베이스**: Supabase
+- **프론트엔드**: React.js + Vite
+- **백엔드**: Node.js + Express.js
+- **데이터베이스**: Supabase (PostgreSQL)
+- **배포**: Railway (백엔드) + Netlify (프론트엔드)
 - **API 연동**: 카페24 API
 - **인증**: JWT 토큰 기반 인증
 
@@ -189,7 +190,7 @@ VITE_APP_VERSION=1.0.0
 이 시스템은 다음 플랫폼에 배포됩니다:
 
 - **백엔드**: Railway (Express.js)
-- **프론트엔드**: Cloudflare Pages (React)
+- **프론트엔드**: Netlify (React)
 - **데이터베이스**: Supabase (PostgreSQL)
 - **접근제어**: Cloudflare Zero Trust
 
@@ -204,8 +205,8 @@ VITE_APP_VERSION=1.0.0
 # 2. Railway에 백엔드 배포
 # Railway 대시보드에서 GitHub 리포지토리 연결 (server 폴더)
 
-# 3. Cloudflare Pages에 프론트엔드 배포
-# Cloudflare Pages에서 GitHub 리포지토리 연결 (web 폴더)
+# 3. Netlify에 프론트엔드 배포
+# Netlify에서 GitHub 리포지토리 연결 (web 폴더)
 
 # 4. 도메인 및 Zero Trust 설정
 # DEPLOYMENT.md 참조

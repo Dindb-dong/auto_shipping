@@ -17,7 +17,7 @@
            ▼
     카페24 Admin API (shipments POST/PUT)
 
-[Cloudflare Pages: 프론트] https://app.your-domain.com
+[Netlify: 프론트] https://app.your-domain.com
   └ 설정/대시보드/테스트 호출 (Zero Trust: Email/SSO)
 
 DNS: Cloudflare
@@ -102,11 +102,11 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
    - `api.your-domain.com` 추가
    - DNS 설정 안내에 따라 Cloudflare DNS에 CNAME 레코드 추가
 
-### 3단계: Cloudflare Pages 프론트엔드 배포
+### 3단계: Netlify 프론트엔드 배포
 
-1. **Cloudflare Pages 프로젝트 생성**
+1. **Netlify 프로젝트 생성**
 
-   - Cloudflare 대시보드 → Pages → Create a project
+   - Netlify 대시보드 → "New site from Git"
    - GitHub 리포지토리 연결
    - `web` 폴더를 루트로 설정
 
@@ -114,11 +114,13 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
 
    ```
    Build command: npm run build
-   Build output directory: dist
-   Root directory: web
+   Publish directory: dist
+   Base directory: web
    ```
 
 3. **환경변수 설정**
+
+   - Site settings → Environment variables
 
    ```
    VITE_API_BASE_URL=https://api.your-domain.com
@@ -127,7 +129,7 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
    ```
 
 4. **커스텀 도메인 설정**
-   - Pages → Custom domains
+   - Domain settings → Custom domains
    - `app.your-domain.com` 추가
 
 ### 4단계: Cloudflare Zero Trust 설정
@@ -237,9 +239,9 @@ railway logs
 # 또는 Railway 대시보드에서 확인
 ```
 
-### Cloudflare Analytics
+### Netlify Analytics
 
-- Pages → Analytics에서 프론트엔드 성능 확인
+- Site settings → Analytics에서 프론트엔드 성능 확인
 - Zero Trust → Analytics에서 접근 로그 확인
 
 ### Supabase 모니터링
@@ -289,7 +291,7 @@ railway logs --tail
 
 - GitHub에 푸시하면 자동으로 배포됨
 - Railway: `server` 폴더 변경 시
-- Cloudflare Pages: `web` 폴더 변경 시
+- Netlify: `web` 폴더 변경 시
 
 ### 수동 배포
 
@@ -297,8 +299,8 @@ railway logs --tail
 # Railway
 railway up
 
-# Cloudflare Pages
-# Pages 대시보드에서 "Retry deployment" 클릭
+# Netlify
+# Netlify 대시보드에서 "Trigger deploy" 클릭
 ```
 
 ## 📞 지원
