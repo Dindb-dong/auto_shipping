@@ -18,10 +18,24 @@ const Dashboard = () => {
   const mallManager = useMallManager()
   const currentMall = mallManager.getCurrentMall()
 
+  // 기본 날짜 범위 설정 (최근 30일)
+  const getDefaultDateRange = () => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+
+    return {
+      start_date: startDate.toISOString().split('T')[0],
+      end_date: endDate.toISOString().split('T')[0]
+    };
+  };
+
+  const defaultDateRange = getDefaultDateRange();
+
   // 주문 통계 조회
   const { data: statsData, isLoading: statsLoading } = useQuery(
     'orderStats',
-    () => ordersApi.getOrderStats(),
+    () => ordersApi.getOrderStats(defaultDateRange),
     {
       refetchInterval: 30000, // 30초마다 갱신
     }
@@ -30,7 +44,11 @@ const Dashboard = () => {
   // 최근 주문 조회
   const { data: recentOrdersData, isLoading: ordersLoading } = useQuery(
     'recentOrders',
-    () => ordersApi.getOrders({ limit: 10, sort: 'date_desc' }),
+    () => ordersApi.getOrders({
+      ...defaultDateRange,
+      limit: 10,
+      sort: 'date_desc'
+    }),
     {
       refetchInterval: 30000,
     }

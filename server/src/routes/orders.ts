@@ -31,10 +31,18 @@ router.get('/', async (req: Request, res: Response) => {
     // 유효한 액세스 토큰 가져오기
     const accessToken = await getValidAccessTokenForMall(mallId);
 
+    // 날짜 범위가 없으면 기본값 설정 (최근 30일)
+    const defaultEndDate = new Date();
+    const defaultStartDate = new Date();
+    defaultStartDate.setDate(defaultStartDate.getDate() - 30);
+
+    const startDate = queryParams.start_date || defaultStartDate.toISOString().split('T')[0];
+    const endDate = queryParams.end_date || defaultEndDate.toISOString().split('T')[0];
+
     // 카페24에서 주문 목록 조회
     const orders: any = await cafe24Client.getOrders(mallId, accessToken, {
-      start_date: queryParams.start_date,
-      end_date: queryParams.end_date,
+      start_date: startDate,
+      end_date: endDate,
       status: queryParams.status,
       limit: queryParams.limit || 50,
       offset: queryParams.offset || 0
@@ -193,6 +201,14 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
     // 유효한 액세스 토큰 가져오기
     const accessToken = await getValidAccessTokenForMall(mallId);
 
+    // 날짜 범위가 없으면 기본값 설정 (최근 30일)
+    const defaultEndDate = new Date();
+    const defaultStartDate = new Date();
+    defaultStartDate.setDate(defaultStartDate.getDate() - 30);
+
+    const finalStartDate = start_date || defaultStartDate.toISOString().split('T')[0];
+    const finalEndDate = end_date || defaultEndDate.toISOString().split('T')[0];
+
     // 각 배송 상태별로 주문 조회
     const statuses = ['shipping', 'delivered', 'returned', 'cancelled'];
     const stats: Record<string, number> = {};
@@ -200,8 +216,8 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
     for (const status of statuses) {
       try {
         const orders: any = await cafe24Client.getOrders(mallId, accessToken, {
-          start_date,
-          end_date,
+          start_date: finalStartDate,
+          end_date: finalEndDate,
           status,
           limit: 1
         });
@@ -215,7 +231,7 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: {
-        period: { start_date, end_date },
+        period: { start_date: finalStartDate, end_date: finalEndDate },
         stats
       }
     });
