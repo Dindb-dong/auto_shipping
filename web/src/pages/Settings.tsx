@@ -10,8 +10,8 @@ const Settings = () => {
   const [adminPw, setAdminPw] = useState('')
   const [isAuthed, setIsAuthed] = useState(false)
 
-  const adminUser = useMemo(() => import.meta.env.VITE_ADMIN_USER as string | undefined, [])
-  const adminPass = useMemo(() => import.meta.env.VITE_ADMIN_PASS as string | undefined, [])
+  const adminUser = useMemo(() => import.meta.env.ADMIN_USER as string | undefined, [])
+  const adminPass = useMemo(() => import.meta.env.ADMIN_PASS as string | undefined, [])
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ADMIN_SESSION)
