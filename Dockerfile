@@ -1,7 +1,7 @@
 # 멀티 스테이지 빌드로 보안 및 크기 최적화
 
 # --- 빌드 스테이지 ---
-FROM node:20.16.0-alpine3.20 AS build
+FROM mirror.gcr.io/library/node:20-alpine AS build
 
 # 보안 업데이트
 RUN apk --no-cache upgrade
@@ -20,7 +20,7 @@ WORKDIR /app/server
 RUN npm run build
 
 # --- 프로덕션 스테이지 ---
-FROM node:20.16.0-alpine3.20 AS production
+FROM mirror.gcr.io/library/node:20-alpine AS production
 
 # 보안 업데이트 + dumb-init 설치
 RUN apk --no-cache upgrade && apk add --no-cache dumb-init
