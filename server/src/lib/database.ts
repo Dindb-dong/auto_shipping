@@ -185,18 +185,68 @@ export { pool };
 export async function saveTokensForMall(mallId: string, tokens: Cafe24TokenResponse): Promise<void> {
   const client = await pool.connect();
   try {
-    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+    // expires_in 값 검증 및 디버깅
+    console.log('🔍 Token data received:', {
+      mallId,
+      expires_in: tokens.expires_in,
+      expires_in_type: typeof tokens.expires_in,
+      access_token_length: tokens.access_token?.length,
+      refresh_token_length: tokens.refresh_token?.length
+    });
 
-    await client.query(`
-      INSERT INTO oauth_tokens (provider, mall_id, access_token, refresh_token, expires_at)
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (provider, mall_id) 
-      DO UPDATE SET 
-        access_token = EXCLUDED.access_token,
-        refresh_token = EXCLUDED.refresh_token,
-        expires_at = EXCLUDED.expires_at,
-        updated_at = NOW()
-    `, ['cafe24', mallId, tokens.access_token, tokens.refresh_token, expiresAt]);
+    // expires_in 값 검증
+    let expiresInSeconds: number;
+    if (typeof tokens.expires_in === 'number' &&
+      !isNaN(tokens.expires_in) &&
+      isFinite(tokens.expires_in) &&
+      tokens.expires_in > 0) {
+      expiresInSeconds = tokens.expires_in;
+    } else if (typeof tokens.expires_in === 'string') {
+      const parsed = parseInt(tokens.expires_in, 10);
+      if (!isNaN(parsed) && isFinite(parsed) && parsed > 0) {
+        expiresInSeconds = parsed;
+      } else {
+        console.warn('⚠️ Invalid expires_in string, using default 2 hours');
+        expiresInSeconds = 7200; // 2시간 기본값
+      }
+    } else {
+      console.warn('⚠️ Invalid expires_in value, using default 2 hours');
+      expiresInSeconds = 7200; // 2시간 기본값
+    }
+
+    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
+    console.log('📅 Calculated expiration:', {
+      expiresInSeconds,
+      expiresAt: expiresAt.toISOString(),
+      isValid: !isNaN(expiresAt.getTime())
+    });
+
+    // 유효하지 않은 날짜인 경우 기본값 사용
+    if (isNaN(expiresAt.getTime())) {
+      console.error('❌ Invalid expiration date calculated, using 2 hours from now');
+      const fallbackExpiresAt = new Date(Date.now() + 7200 * 1000);
+      await client.query(`
+        INSERT INTO oauth_tokens (provider, mall_id, access_token, refresh_token, expires_at)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (provider, mall_id) 
+        DO UPDATE SET 
+          access_token = EXCLUDED.access_token,
+          refresh_token = EXCLUDED.refresh_token,
+          expires_at = EXCLUDED.expires_at,
+          updated_at = NOW()
+      `, ['cafe24', mallId, tokens.access_token, tokens.refresh_token, fallbackExpiresAt]);
+    } else {
+      await client.query(`
+        INSERT INTO oauth_tokens (provider, mall_id, access_token, refresh_token, expires_at)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (provider, mall_id) 
+        DO UPDATE SET 
+          access_token = EXCLUDED.access_token,
+          refresh_token = EXCLUDED.refresh_token,
+          expires_at = EXCLUDED.expires_at,
+          updated_at = NOW()
+      `, ['cafe24', mallId, tokens.access_token, tokens.refresh_token, expiresAt]);
+    }
   } finally {
     client.release();
   }

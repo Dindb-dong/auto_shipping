@@ -136,12 +136,19 @@ router.get('/callback', async (req: Request, res: Response) => {
 
     const tokens = await tokenResponse.json() as Cafe24TokenResponse;
 
+    // 토큰 응답 디버깅
+    console.log('🔍 Raw token response from Cafe24:', {
+      status: tokenResponse.status,
+      headers: Object.fromEntries(tokenResponse.headers.entries()),
+      body: tokens
+    });
+
     // 토큰을 DB에 저장 (실패해도 계속 진행)
     try {
       await saveTokensForMall(mallId, tokens);
-      console.log(`OAuth tokens saved successfully for mall: ${mallId}`);
+      console.log(`✅ OAuth tokens saved successfully for mall: ${mallId}`);
     } catch (dbError) {
-      console.error('Failed to save tokens to database:', dbError);
+      console.error('❌ Failed to save tokens to database:', dbError);
       // DB 저장 실패해도 토큰 교환은 성공했으므로 계속 진행
     }
 
