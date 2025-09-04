@@ -7,6 +7,7 @@ import oauth from './routes/oauth';
 import webhook from './routes/webhook';
 import orders from './routes/orders';
 import auth from './routes/auth';
+import { testDatabaseConnection } from './lib/database';
 
 // 환경변수 로드
 dotenv.config();
@@ -54,11 +55,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // 헬스 체크
-app.get('/health', (_, res) => {
+app.get('/health', async (_, res) => {
+  const dbStatus = await testDatabaseConnection();
   res.json({
-    status: 'ok',
+    status: dbStatus ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version ?? '1.0.0',
+    database: dbStatus ? 'connected' : 'disconnected',
   });
 });
 
@@ -84,9 +87,27 @@ const port = Number(process.env.PORT) || 3000;
 const host = '0.0.0.0';
 const url = process.env.BACKEND_URL || `http://localhost:${port}`;
 
-app.listen(port, host, () => {
-  console.log(`🚀 API Server running on http://${host}:${port}`);
-  console.log(`📊 Health check: ${url}/health`);
-  console.log(`🔐 OAuth callback: ${url}/oauth/callback`);
-  console.log(`📦 Webhook endpoint: ${url}/webhook/logiview`);
+// 서버 시작 전 데이터베이스 연결 테스트
+async function startServer() {
+  console.log('🔍 Testing database connection...');
+  const dbConnected = await testDatabaseConnection();
+
+  if (!dbConnected) {
+    console.error('❌ Database connection failed. Server will start but may not function properly.');
+    console.log('💡 Please check your DATABASE_URL or individual database environment variables.');
+  } else {
+    console.log('✅ Database connection successful');
+  }
+
+  app.listen(port, host, () => {
+    console.log(`🚀 API Server running on http://${host}:${port}`);
+    console.log(`📊 Health check: ${url}/health`);
+    console.log(`🔐 OAuth callback: ${url}/oauth/callback`);
+    console.log(`📦 Webhook endpoint: ${url}/webhook/logiview`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });

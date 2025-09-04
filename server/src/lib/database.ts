@@ -1,11 +1,134 @@
 import { Pool, PoolClient } from 'pg';
 import { Cafe24TokenResponse } from './cafe24';
 
-// 데이터베이스 연결 풀
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+// 데이터베이스 연결 풀 설정
+const getDatabaseConfig = () => {
+  console.log('🔍 Database configuration debug:');
+  console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
+  console.log('DATABASE_HOST:', process.env.DATABASE_HOST || 'Not set');
+  console.log('DATABASE_PORT:', process.env.DATABASE_PORT || 'Not set');
+  console.log('DATABASE_NAME:', process.env.DATABASE_NAME || 'Not set');
+  console.log('DATABASE_USER:', process.env.DATABASE_USER || 'Not set');
+  console.log('DATABASE_PASSWORD:', process.env.DATABASE_PASSWORD ? 'Set' : 'Not set');
+
+  // 개별 환경변수가 모두 설정되어 있으면 우선 사용
+  if (process.env.DATABASE_HOST && process.env.DATABASE_NAME && process.env.DATABASE_USER && process.env.DATABASE_PASSWORD) {
+    console.log('✅ Using individual database environment variables');
+    return {
+      host: process.env.DATABASE_HOST,
+      port: parseInt(process.env.DATABASE_PORT || '5432'),
+      database: process.env.DATABASE_NAME,
+      user: process.env.DATABASE_USER,
+      password: process.env.DATABASE_PASSWORD,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 30000,
+      max: 10,
+    };
+  }
+
+  // DATABASE_URL이 있으면 파싱해서 사용
+  if (process.env.DATABASE_URL) {
+    try {
+      const url = new URL(process.env.DATABASE_URL);
+      console.log('🔍 Parsed DATABASE_URL hostname:', url.hostname);
+
+      // IPv6 주소 감지 (콜론이 포함된 경우)
+      if (url.hostname.includes(':')) {
+        console.log('⚠️ IPv6 database URL detected, attempting to use IPv4 alternative');
+
+        // Railway PostgreSQL의 IPv4 호스트명 패턴 시도
+        let ipv4Host = url.hostname;
+
+        // Railway IPv6 주소를 IPv4로 매핑
+        if (url.hostname.includes('2406:da12:b78:de00:bf62:bc3a:a608:f3ab')) {
+          // 이 특정 IPv6 주소를 Railway의 내부 IPv4 호스트명으로 매핑
+          ipv4Host = 'postgres.railway.internal';
+        } else if (url.hostname.includes('.railway.app')) {
+          // 일반적인 Railway 도메인을 내부 호스트명으로 변환
+          ipv4Host = url.hostname.replace(/^.*\.railway\.app$/, 'postgres.railway.internal');
+        } else {
+          // 다른 IPv6 주소의 경우 localhost로 시도
+          ipv4Host = 'localhost';
+        }
+
+        console.log('🔄 Trying IPv4 host:', ipv4Host);
+
+        return {
+          host: ipv4Host,
+          port: parseInt(url.port || '5432'),
+          database: url.pathname.slice(1),
+          user: url.username,
+          password: url.password,
+          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+          connectionTimeoutMillis: 10000,
+          idleTimeoutMillis: 30000,
+          max: 10,
+        };
+      } else {
+        console.log('✅ Using IPv4 DATABASE_URL');
+        return {
+          connectionString: process.env.DATABASE_URL,
+          ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+          connectionTimeoutMillis: 10000,
+          idleTimeoutMillis: 30000,
+          max: 10,
+        };
+      }
+    } catch (error) {
+      console.error('❌ Error parsing DATABASE_URL:', error);
+    }
+  }
+
+  // 기본 설정 (개별 환경변수 사용)
+  console.log('⚠️ Using fallback database configuration');
+  return {
+    host: process.env.DATABASE_HOST || 'localhost',
+    port: parseInt(process.env.DATABASE_PORT || '5432'),
+    database: process.env.DATABASE_NAME || 'auto_shipping',
+    user: process.env.DATABASE_USER || 'postgres',
+    password: process.env.DATABASE_PASSWORD || '',
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
+    max: 10,
+  };
+};
+
+const pool = new Pool(getDatabaseConfig());
+
+// 연결 에러 처리
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
 });
+
+// 연결 테스트 함수 (재시도 로직 포함)
+export async function testDatabaseConnection(retries: number = 3): Promise<boolean> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`🔄 Database connection attempt ${attempt}/${retries}`);
+      const client = await pool.connect();
+      await client.query('SELECT 1');
+      client.release();
+      console.log('✅ Database connection successful');
+      return true;
+    } catch (error: any) {
+      console.error(`❌ Database connection attempt ${attempt} failed:`, error.message);
+
+      if (error.code === 'ENETUNREACH' && attempt < retries) {
+        console.log(`⏳ Waiting 2 seconds before retry...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        continue;
+      }
+
+      if (attempt === retries) {
+        console.error('❌ All database connection attempts failed');
+        return false;
+      }
+    }
+  }
+  return false;
+}
 
 export { pool };
 
