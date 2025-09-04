@@ -110,8 +110,9 @@ const Settings = () => {
     ['oauthStatus', mallId],
     () => oauthApi.getStatus(mallId),
     {
-      refetchInterval: 30000,
+      refetchInterval: 60000, // 1분으로 늘림
       enabled: !!mallId, // mall_id가 있을 때만 쿼리 실행
+      staleTime: 30000, // 30초간 캐시 유지
     }
   )
 
@@ -124,7 +125,13 @@ const Settings = () => {
           isConnected,
           connectedAt: isConnected ? new Date().toISOString() : undefined
         })
-        loadMallData()
+        // 상태 업데이트 후 로컬 상태도 즉시 반영
+        setCurrentMall(prev => prev ? { ...prev, isConnected } : null)
+        setSavedMalls(prev => prev.map(mall =>
+          mall.id === currentMall.id
+            ? { ...mall, isConnected, connectedAt: isConnected ? new Date().toISOString() : undefined }
+            : mall
+        ))
       }
     }
   }, [oauthStatus, currentMall])
@@ -213,6 +220,8 @@ const Settings = () => {
     setCurrentMall(mall)
     setMallId(mall.mallId)
     loadMallData()
+    // OAuth 상태 즉시 조회
+    refetchOauth()
   }
 
   const handleDeleteMall = (mall: SavedMall) => {

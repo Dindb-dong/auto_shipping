@@ -115,7 +115,7 @@ export class Cafe24Client {
     }
   ): Promise<Cafe24ShipmentResponse> {
     const baseUrl = this.getBaseUrl(mallId);
-    const response = await fetch(`${baseUrl}/admin/orders/${shipmentData.order_id}/shipments`, {
+    const response = await fetch(`${baseUrl}/admin/orders/${shipmentData.order_id}/shipping`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -153,7 +153,7 @@ export class Cafe24Client {
     }
   ): Promise<Cafe24ShipmentResponse> {
     const baseUrl = this.getBaseUrl(mallId);
-    const response = await fetch(`${baseUrl}/admin/orders/${orderId}/shipments`, {
+    const response = await fetch(`${baseUrl}/admin/orders/${orderId}/shipping`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
