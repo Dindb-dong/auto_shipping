@@ -102,46 +102,44 @@ export class Cafe24Client {
     return Cafe24TokenResponse.parse(data);
   }
 
-  // 배송 정보 생성/수정 (특정 몰)
-  async createShipment(
+  // 주문 상태 업데이트 (배송 정보 포함)
+  async updateOrderStatus(
     mallId: string,
     accessToken: string,
-    shipmentData: {
-      order_id: string;
-      tracking_no: string;
-      shipping_company_code: string;
-      status: string;
-      items?: any[];
+    orderId: string,
+    statusData: {
+      shipping_status: string;
+      tracking_no?: string;
+      shipping_company_code?: string;
     }
-  ): Promise<Cafe24ShipmentResponse> {
+  ): Promise<any> {
     const baseUrl = this.getBaseUrl(mallId);
-    const response = await fetch(`${baseUrl}/admin/orders/${shipmentData.order_id}/shipping`, {
-      method: 'POST',
+    const response = await fetch(`${baseUrl}/admin/orders/${orderId}`, {
+      method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'X-Cafe24-Api-Version': '2025-06-01',
       },
       body: JSON.stringify({
-        shipment: {
-          tracking_no: shipmentData.tracking_no,
-          shipping_company_code: shipmentData.shipping_company_code,
-          status: shipmentData.status,
-          items: shipmentData.items || [],
+        order: {
+          shipping_status: statusData.shipping_status,
+          ...(statusData.tracking_no && { tracking_no: statusData.tracking_no }),
+          ...(statusData.shipping_company_code && { shipping_company_code: statusData.shipping_company_code }),
         },
       }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Shipment creation failed: ${error}`);
+      throw new Error(`Order status update failed: ${error}`);
     }
 
     const data = await response.json();
-    return Cafe24ShipmentResponse.parse(data);
+    return data;
   }
 
-  // 배송 정보 수정 (특정 몰)
+  // 주문 상태 업데이트 (배송 정보 수정)
   async updateShipment(
     mallId: string,
     accessToken: string,
@@ -151,27 +149,13 @@ export class Cafe24Client {
       shipping_company_code: string;
       status: string;
     }
-  ): Promise<Cafe24ShipmentResponse> {
-    const baseUrl = this.getBaseUrl(mallId);
-    const response = await fetch(`${baseUrl}/admin/orders/${orderId}/shipping`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Cafe24-Api-Version': '2025-06-01',
-      },
-      body: JSON.stringify({
-        shipment: shipmentData,
-      }),
+  ): Promise<any> {
+    // updateOrderStatus 메서드를 재사용
+    return this.updateOrderStatus(mallId, accessToken, orderId, {
+      shipping_status: shipmentData.status,
+      tracking_no: shipmentData.tracking_no,
+      shipping_company_code: shipmentData.shipping_company_code,
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Shipment update failed: ${error}`);
-    }
-
-    const data = await response.json();
-    return Cafe24ShipmentResponse.parse(data);
   }
 
   // 주문 목록 조회 (특정 몰)
