@@ -5,25 +5,33 @@ import { oauthApi } from '../utils/api'
 
 const Login = () => {
   const [isInstalling, setIsInstalling] = useState(false)
+  const [mallId, setMallId] = useState('')
 
-  // OAuth 상태 조회
+  // OAuth 상태 조회 (mall_id가 있을 때만)
   const { data: oauthStatus, refetch: refetchOauth } = useQuery(
-    'oauthStatus',
-    oauthApi.getStatus,
+    ['oauthStatus', mallId],
+    () => oauthApi.getStatus(mallId),
     {
       refetchInterval: 5000, // 5초마다 체크
+      enabled: !!mallId, // mall_id가 있을 때만 쿼리 실행
     }
   )
 
   const handleInstall = async () => {
+    if (!mallId.trim()) {
+      alert('몰 ID를 입력해주세요.')
+      return
+    }
+
     setIsInstalling(true)
     try {
-      const response = await oauthApi.getInstallUrl()
-      if (response.success && response.data?.install_url) {
-        window.open(response.data.install_url, '_blank')
-      }
+      // 백엔드 OAuth 설치 엔드포인트로 직접 리다이렉트
+      const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+      const installUrl = `${backendUrl}/oauth/install?mall_id=${encodeURIComponent(mallId.trim())}`
+      window.location.href = installUrl
     } catch (error) {
       console.error('OAuth install error:', error)
+      alert('OAuth 설치 중 오류가 발생했습니다.')
     } finally {
       setIsInstalling(false)
     }
@@ -52,6 +60,28 @@ const Login = () => {
         </div>
 
         <div className="mt-8 space-y-6">
+          {/* 몰 ID 입력 */}
+          <div className="bg-white py-6 px-4 shadow sm:rounded-lg sm:px-10">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  몰 ID (Mall ID)
+                </label>
+                <input
+                  type="text"
+                  value={mallId}
+                  onChange={(e) => setMallId(e.target.value)}
+                  className="w-full input"
+                  placeholder="예: yourmall"
+                  disabled={isConnected}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  카페24 관리자 페이지에서 확인할 수 있는 몰 ID를 입력하세요.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* 연결 상태 */}
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
             <div className="space-y-6">
@@ -70,7 +100,7 @@ const Login = () => {
                 <p className="mt-2 text-sm text-gray-500">
                   {isConnected
                     ? '시스템을 사용할 준비가 되었습니다.'
-                    : '카페24 앱을 설치하여 연동을 완료해주세요.'
+                    : '몰 ID를 입력하고 카페24 앱을 설치하여 연동을 완료해주세요.'
                   }
                 </p>
               </div>
@@ -113,7 +143,7 @@ const Login = () => {
 
                   <button
                     onClick={handleInstall}
-                    disabled={isInstalling}
+                    disabled={isInstalling || !mallId.trim()}
                     className="w-full btn btn-primary"
                   >
                     {isInstalling ? (
@@ -167,7 +197,8 @@ const Login = () => {
           <div className="bg-blue-50 py-6 px-4 shadow sm:rounded-lg sm:px-10">
             <h4 className="text-lg font-medium text-blue-900 mb-4">도움말</h4>
             <div className="space-y-2 text-sm text-blue-800">
-              <p>• 카페24 앱 설치 시 필요한 권한: 주문 조회, 주문 수정</p>
+              <p>• 몰 ID는 카페24 관리자 페이지에서 확인할 수 있습니다</p>
+              <p>• 카페24 앱 설치 시 필요한 권한: 상품 조회, 주문 조회, 주문 수정</p>
               <p>• 설치 완료 후 이 페이지에서 연결 상태를 확인하세요</p>
               <p>• 문제가 발생하면 관리자에게 문의하세요</p>
             </div>
