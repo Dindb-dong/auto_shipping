@@ -81,7 +81,7 @@ const Dashboard = () => {
     cancelled: 0,
   }
 
-  const recentOrders = recentOrdersData?.data?.data || []
+  const recentOrders = (recentOrdersData?.data as any) || []
 
   const statCards = [
     {
@@ -172,7 +172,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="table-body">
-                  {recentOrders.map((order) => (
+                  {recentOrders.map((order: any) => (
                     <tr key={order.order_id} className="table-row">
                       <td className="table-cell">
                         <div className="text-sm font-medium text-gray-900">

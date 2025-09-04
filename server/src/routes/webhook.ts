@@ -139,7 +139,7 @@ router.post('/logiview', authenticateWebhook, async (req: Request, res: Response
 // 웹훅 테스트 엔드포인트
 router.post('/test', async (req: Request, res: Response) => {
   const testData = {
-    order_id: 'TEST-' + Date.now(),
+    order_id: '20250903-0000030', // 실제 존재하는 주문 ID 사용
     tracking_no: '123456789012',
     shipping_company_code: 'kr.cjlogistics',
     status: 'shipping' as const,

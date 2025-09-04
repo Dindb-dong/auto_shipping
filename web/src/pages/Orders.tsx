@@ -9,10 +9,19 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [sortBy, setSortBy] = useState('date_desc')
-  const [dateRange, setDateRange] = useState({
-    start: '',
-    end: ''
-  })
+  // 기본 날짜 범위 설정 (일주일 전 ~ 오늘)
+  const getDefaultDateRange = () => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 7);
+
+    return {
+      start: startDate.toISOString().split('T')[0],
+      end: endDate.toISOString().split('T')[0]
+    };
+  };
+
+  const [dateRange, setDateRange] = useState(getDefaultDateRange())
 
   // 주문 목록 조회
   const { data: ordersData, isLoading, refetch } = useQuery(
@@ -29,7 +38,7 @@ const Orders = () => {
     }
   )
 
-  const orders = ordersData?.data?.data || []
+  const orders = (ordersData?.data as any) || []
 
   // 검색 필터링
   const filteredOrders = orders.filter((order: Order) => {
