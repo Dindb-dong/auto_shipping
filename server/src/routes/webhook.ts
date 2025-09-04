@@ -49,29 +49,32 @@ router.post('/logiview', authenticateWebhook, async (req: Request, res: Response
     // 유효한 액세스 토큰 가져오기 (자동 갱신 포함)
     const accessToken = await getValidAccessTokenForMall(mallId);
 
-    // 카페24에 주문 상태 업데이트 (배송 정보 포함)
+    // 카페24에 송장번호 입력 및 배송상태 변경 (핵심 기능)
     let cafe24Response;
     try {
-      cafe24Response = await cafe24Client.updateOrderStatus(mallId, accessToken, webhookData.order_id, {
-        shipping_status: webhookData.status,
+      cafe24Response = await cafe24Client.createShipment(mallId, accessToken, webhookData.order_id, {
         tracking_no: webhookData.tracking_no,
         shipping_company_code: webhookData.shipping_company_code,
+        status: webhookData.status,
+        // order_item_code는 웹훅 데이터에서 가져오거나 기본값 사용
+        order_item_code: webhookData.items?.map(item => item.product_id) || [],
       });
 
-      console.log('Successfully updated order status in Cafe24:', cafe24Response);
+      console.log('Successfully created shipment in Cafe24:', cafe24Response);
 
     } catch (cafe24Error: any) {
       console.error('Cafe24 API error:', cafe24Error);
 
       // 409 Conflict (이미 배송 정보가 있는 경우) - 업데이트 시도
       if (cafe24Error.message.includes('409') || cafe24Error.message.includes('already exists')) {
-        console.log('Order status already exists, attempting to update...');
-        cafe24Response = await cafe24Client.updateOrderStatus(mallId, accessToken, webhookData.order_id, {
-          shipping_status: webhookData.status,
+        console.log('Shipment already exists, attempting to update...');
+        cafe24Response = await cafe24Client.updateShipment(mallId, accessToken, webhookData.order_id, {
           tracking_no: webhookData.tracking_no,
           shipping_company_code: webhookData.shipping_company_code,
+          status: webhookData.status,
+          order_item_code: webhookData.items?.map(item => item.product_id) || [],
         });
-        console.log('Successfully updated order status in Cafe24:', cafe24Response);
+        console.log('Successfully updated shipment in Cafe24:', cafe24Response);
       } else {
         throw cafe24Error;
       }
@@ -162,29 +165,31 @@ router.post('/test', async (req: Request, res: Response) => {
     // 유효한 액세스 토큰 가져오기 (자동 갱신 포함)
     const accessToken = await getValidAccessTokenForMall(mallId);
 
-    // 카페24에 주문 상태 업데이트 (배송 정보 포함)
+    // 카페24에 송장번호 입력 및 배송상태 변경 (핵심 기능)
     let cafe24Response;
     try {
-      cafe24Response = await cafe24Client.updateOrderStatus(mallId, accessToken, webhookData.order_id, {
-        shipping_status: webhookData.status,
+      cafe24Response = await cafe24Client.createShipment(mallId, accessToken, webhookData.order_id, {
         tracking_no: webhookData.tracking_no,
         shipping_company_code: webhookData.shipping_company_code,
+        status: webhookData.status,
+        order_item_code: webhookData.items?.map(item => item.product_id) || [],
       });
 
-      console.log('Successfully updated order status in Cafe24:', cafe24Response);
+      console.log('Successfully created test shipment in Cafe24:', cafe24Response);
 
     } catch (cafe24Error: any) {
       console.error('Cafe24 API error during test:', cafe24Error);
 
       // 409 Conflict (이미 배송 정보가 있는 경우) - 업데이트 시도
       if (cafe24Error.message.includes('409') || cafe24Error.message.includes('already exists')) {
-        console.log('Order status already exists, attempting to update...');
-        cafe24Response = await cafe24Client.updateOrderStatus(mallId, accessToken, webhookData.order_id, {
-          shipping_status: webhookData.status,
+        console.log('Test shipment already exists, attempting to update...');
+        cafe24Response = await cafe24Client.updateShipment(mallId, accessToken, webhookData.order_id, {
           tracking_no: webhookData.tracking_no,
           shipping_company_code: webhookData.shipping_company_code,
+          status: webhookData.status,
+          order_item_code: webhookData.items?.map(item => item.product_id) || [],
         });
-        console.log('Successfully updated order status in Cafe24:', cafe24Response);
+        console.log('Successfully updated test shipment in Cafe24:', cafe24Response);
       } else {
         throw cafe24Error;
       }

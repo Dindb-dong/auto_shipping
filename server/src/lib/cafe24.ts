@@ -102,44 +102,93 @@ export class Cafe24Client {
     return Cafe24TokenResponse.parse(data);
   }
 
-  // 주문 상태 업데이트 (배송 정보 포함)
-  async updateOrderStatus(
+  // 송장번호 입력 및 배송상태 변경 (핵심 기능)
+  async createShipment(
     mallId: string,
     accessToken: string,
     orderId: string,
-    statusData: {
-      shipping_status: string;
-      tracking_no?: string;
-      shipping_company_code?: string;
+    shipmentData: {
+      tracking_no: string;
+      shipping_company_code: string;
+      status: string;
+      order_item_code?: string[];
+      shipping_code?: string;
+      carrier_id?: number;
     }
   ): Promise<any> {
     const baseUrl = this.getBaseUrl(mallId);
-    const response = await fetch(`${baseUrl}/admin/orders/${orderId}`, {
-      method: 'PUT',
+
+    // 카페24 API 문서에 따른 올바른 구조 사용
+    const payload = {
+      shop_no: 1,
+      request: {
+        tracking_no: shipmentData.tracking_no,
+        shipping_company_code: shipmentData.shipping_company_code,
+        status: shipmentData.status,
+        ...(shipmentData.order_item_code && { order_item_code: shipmentData.order_item_code }),
+        ...(shipmentData.shipping_code && { shipping_code: shipmentData.shipping_code }),
+        ...(shipmentData.carrier_id && { carrier_id: shipmentData.carrier_id }),
+      }
+    };
+
+    console.log('🔍 Cafe24 Shipment Creation Request:', {
+      url: `${baseUrl}/admin/orders/${orderId}/shipments`,
+      payload
+    });
+
+    const response = await fetch(`${baseUrl}/admin/orders/${orderId}/shipments`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         'X-Cafe24-Api-Version': '2025-06-01',
       },
-      body: JSON.stringify({
-        order: {
-          shipping_status: statusData.shipping_status,
-          ...(statusData.tracking_no && { tracking_no: statusData.tracking_no }),
-          ...(statusData.shipping_company_code && { shipping_company_code: statusData.shipping_company_code }),
-        },
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Order status update failed: ${error}`);
+      console.error('❌ Cafe24 Shipment Creation Error:', error);
+      throw new Error(`Shipment creation failed: ${error}`);
     }
 
     const data = await response.json();
+    console.log('✅ Cafe24 Shipment Creation Response:', data);
     return data;
   }
 
-  // 주문 상태 업데이트 (배송 정보 수정)
+  // 기존 배송정보 조회
+  async getShipments(
+    mallId: string,
+    accessToken: string,
+    orderId: string
+  ): Promise<any> {
+    const baseUrl = this.getBaseUrl(mallId);
+
+    console.log('🔍 Cafe24 Shipments Get Request:', {
+      url: `${baseUrl}/admin/orders/${orderId}/shipments`
+    });
+
+    const response = await fetch(`${baseUrl}/admin/orders/${orderId}/shipments`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'X-Cafe24-Api-Version': '2025-06-01',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('❌ Cafe24 Shipments Get Error:', error);
+      throw new Error(`Shipments fetch failed: ${error}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ Cafe24 Shipments Get Response:', data);
+    return data;
+  }
+
+  // 배송정보 수정 (기존 송장번호가 있는 경우)
   async updateShipment(
     mallId: string,
     accessToken: string,
@@ -148,14 +197,31 @@ export class Cafe24Client {
       tracking_no: string;
       shipping_company_code: string;
       status: string;
+      order_item_code?: string[];
+      shipping_code?: string;
+      carrier_id?: number;
     }
   ): Promise<any> {
-    // updateOrderStatus 메서드를 재사용
-    return this.updateOrderStatus(mallId, accessToken, orderId, {
-      shipping_status: shipmentData.status,
-      tracking_no: shipmentData.tracking_no,
-      shipping_company_code: shipmentData.shipping_company_code,
-    });
+    // 기존 배송정보가 있으면 수정, 없으면 생성
+    try {
+      // 먼저 기존 배송정보 조회
+      const existingShipments = await this.getShipments(mallId, accessToken, orderId);
+
+      if (existingShipments.shipments && existingShipments.shipments.length > 0) {
+        // 기존 배송정보가 있으면 PUT으로 수정
+        return this.createShipment(mallId, accessToken, orderId, {
+          ...shipmentData,
+          shipping_code: existingShipments.shipments[0].shipping_code
+        });
+      } else {
+        // 기존 배송정보가 없으면 POST로 생성
+        return this.createShipment(mallId, accessToken, orderId, shipmentData);
+      }
+    } catch (error) {
+      // 조회 실패 시 새로 생성
+      console.log('⚠️ Failed to get existing shipments, creating new one');
+      return this.createShipment(mallId, accessToken, orderId, shipmentData);
+    }
   }
 
   // 주문 목록 조회 (특정 몰)
@@ -172,11 +238,18 @@ export class Cafe24Client {
   ) {
     const baseUrl = this.getBaseUrl(mallId);
     const searchParams = new URLSearchParams();
+
+    // 카페24 API 문서에 따른 올바른 파라미터명 사용
     if (params.start_date) searchParams.append('start_date', params.start_date);
     if (params.end_date) searchParams.append('end_date', params.end_date);
-    if (params.status) searchParams.append('status', params.status);
+    if (params.status) searchParams.append('shipping_status', params.status);
     if (params.limit) searchParams.append('limit', params.limit.toString());
     if (params.offset) searchParams.append('offset', params.offset.toString());
+
+    console.log('🔍 Cafe24 Orders API Request:', {
+      url: `${baseUrl}/admin/orders?${searchParams}`,
+      params: Object.fromEntries(searchParams)
+    });
 
     const response = await fetch(`${baseUrl}/admin/orders?${searchParams}`, {
       method: 'GET',
@@ -188,10 +261,21 @@ export class Cafe24Client {
 
     if (!response.ok) {
       const error = await response.text();
+      console.error('❌ Cafe24 Orders API Error:', error);
       throw new Error(`Orders fetch failed: ${error}`);
     }
 
-    return await response.json();
+    const data = await response.json() as any;
+    console.log('✅ Cafe24 Orders API Response:', {
+      total_count: data.orders?.length || 0,
+      orders_preview: data.orders?.slice(0, 3).map((order: any) => ({
+        order_id: order.order_id,
+        shipping_status: order.shipping_status,
+        order_date: order.order_date
+      })) || []
+    });
+
+    return data;
   }
 
   // API 호출 헬퍼 함수 (자동 토큰 갱신 포함)
