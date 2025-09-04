@@ -1,14 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from 'react-query'
-import {
-  Search,
-  Filter,
-  Download,
-  RefreshCw,
-  Package,
-  Calendar,
-  MapPin
-} from 'lucide-react'
+import { Search, Download, RefreshCw, Package, MapPin } from 'lucide-react'
 import { ordersApi, Order } from '../utils/api'
 import { formatNumber, formatDate, getShippingStatusLabel } from '../utils/helpers'
 import { SORT_OPTIONS, SHIPPING_STATUS_LABELS } from '../utils/constants'

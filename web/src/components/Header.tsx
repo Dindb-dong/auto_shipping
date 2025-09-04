@@ -5,7 +5,8 @@ import { healthApi } from '../utils/api'
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  // 검색 패널 토글이 아직 UI에 연결되지 않아 경고 방지용으로 주석 처리
+  // const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   // 헬스 체크
   const { data: healthData } = useQuery('health', healthApi.check, {
