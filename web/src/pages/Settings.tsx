@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from 'react-query'
 import { Link, Key, Database, TestTube, ExternalLink } from 'lucide-react'
 import { oauthApi, webhookApi, authApi } from '../utils/api'
