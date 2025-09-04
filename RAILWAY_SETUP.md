@@ -19,11 +19,11 @@ CAFE24_CLIENT_SECRET=your_client_secret
 OAUTH_REDIRECT_URI=https://your-app.railway.app/oauth/callback
 
 # 데이터베이스 설정 (IPv6 문제 해결용)
-# Supabase 사용 시:
-DATABASE_HOST=db.wsxsvvacpbpulbvbpxfc.supabase.co
-DATABASE_PORT=5432
-DATABASE_NAME=alushc-autoship
-DATABASE_USER=postgres
+# Supabase 사용 시 (Transaction pooler - IPv4):
+DATABASE_HOST=aws-1-ap-northeast-2.pooler.supabase.com
+DATABASE_PORT=6543
+DATABASE_NAME=postgres
+DATABASE_USER=postgres.wsxsvvacpbpulbvbpxfc
 DATABASE_PASSWORD=your_supabase_password
 
 # Railway PostgreSQL 사용 시:
@@ -54,12 +54,15 @@ ADMIN_PASS=your_secure_password
 ### Supabase 사용 시:
 
 1. **Supabase 대시보드** → **Settings** → **Database**
-2. **Connection string** 섹션에서 다음 정보 확인:
-   - Host: `db.wsxsvvacpbpulbvbpxfc.supabase.co`
-   - Port: `5432`
-   - Database: `alushc-autoship`
-   - User: `postgres`
+2. **Connection pooling** 섹션에서 **Transaction** 모드 선택
+3. **Connection string** 섹션에서 다음 정보 확인:
+   - Host: `aws-1-ap-northeast-2.pooler.supabase.com` (Transaction pooler)
+   - Port: `6543` (Transaction pooler)
+   - Database: `postgres`
+   - User: `postgres.wsxsvvacpbpulbvbpxfc`
    - Password: 프로젝트 설정에서 확인
+
+**중요**: Transaction pooler는 IPv4 주소를 사용하므로 IPv6 연결 문제가 해결됩니다.
 
 ### Railway PostgreSQL 사용 시:
 

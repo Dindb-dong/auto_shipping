@@ -22,17 +22,40 @@ const getDatabaseConfig = () => {
 
     // Supabase 연결 설정
     const isSupabase = process.env.DATABASE_HOST && process.env.DATABASE_HOST.includes('supabase.co');
+    let finalHost = process.env.DATABASE_HOST;
+    let finalPort = parseInt(process.env.DATABASE_PORT || '5432');
+
+    if (isSupabase) {
+      console.log('🔒 Using Supabase configuration');
+
+      // Supabase Transaction pooler 사용 (IPv4 주소, 포트 6543)
+      if (process.env.DATABASE_HOST.includes('supabase.co')) {
+        // Transaction pooler 호스트명이 이미 설정되어 있으면 사용
+        if (process.env.DATABASE_HOST.includes('pooler.supabase.com')) {
+          finalHost = process.env.DATABASE_HOST;
+          finalPort = 6543; // Transaction pooler 포트
+          console.log('🔄 Using configured Supabase Transaction pooler (IPv4)');
+          console.log('  Pooler Host:', finalHost);
+          console.log('  Pooler Port:', finalPort);
+        } else {
+          // Direct connection을 Transaction pooler로 변환
+          finalHost = process.env.DATABASE_HOST.replace('db.', 'aws-1-ap-northeast-2.pooler.');
+          finalPort = 6543; // Transaction pooler 포트
+          console.log('🔄 Converting to Supabase Transaction pooler (IPv4)');
+          console.log('  Original Host:', process.env.DATABASE_HOST);
+          console.log('  Pooler Host:', finalHost);
+          console.log('  Pooler Port:', finalPort);
+        }
+      }
+    }
+
     const sslConfig = isSupabase
       ? { rejectUnauthorized: false } // Supabase는 SSL 필수
       : (process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false);
 
-    if (isSupabase) {
-      console.log('🔒 Using Supabase SSL configuration');
-    }
-
     return {
-      host: process.env.DATABASE_HOST,
-      port: parseInt(process.env.DATABASE_PORT || '5432'),
+      host: finalHost,
+      port: finalPort,
       database: process.env.DATABASE_NAME,
       user: process.env.DATABASE_USER,
       password: process.env.DATABASE_PASSWORD,
