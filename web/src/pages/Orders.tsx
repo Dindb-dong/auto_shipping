@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from 'react-query'
 import { Search, Download, RefreshCw, Package, MapPin } from 'lucide-react'
-import { ordersApi, Order } from '../utils/api'
-import { formatNumber, formatDate, getShippingStatusLabel } from '../utils/helpers'
+import { ordersApi } from '../utils/api'
+import { formatNumber, formatDate } from '../utils/helpers'
 import { SORT_OPTIONS, SHIPPING_STATUS_LABELS } from '../utils/constants'
 
 const Orders = () => {
@@ -41,13 +41,13 @@ const Orders = () => {
   const orders = (ordersData?.data as any) || []
 
   // 검색 필터링
-  const filteredOrders = orders.filter((order: Order) => {
+  const filteredOrders = orders.filter((order: any) => {
     if (!searchTerm) return true
     const searchLower = searchTerm.toLowerCase()
     return (
       order.order_id.toLowerCase().includes(searchLower) ||
-      order.customer_name.toLowerCase().includes(searchLower) ||
-      order.customer_email.toLowerCase().includes(searchLower)
+      (order.billing_name && order.billing_name.toLowerCase().includes(searchLower)) ||
+      (order.member_email && order.member_email.toLowerCase().includes(searchLower))
     )
   })
 
@@ -59,14 +59,17 @@ const Orders = () => {
     // CSV 내보내기 로직
     const csvContent = [
       ['주문번호', '고객명', '이메일', '주문일시', '상태', '금액', '배송지'].join(','),
-      ...filteredOrders.map((order: Order) => [
+      ...filteredOrders.map((order: any) => [
         order.order_id,
-        order.customer_name,
-        order.customer_email,
+        order.billing_name || '-',
+        order.member_email || '-',
         formatDate(order.order_date),
-        getShippingStatusLabel(order.status),
-        order.total_amount,
-        `${order.shipping_address.city} ${order.shipping_address.address1}`
+        order.shipping_status === 'M' ? '배송중' :
+          order.shipping_status === 'D' ? '배송완료' :
+            order.shipping_status === 'C' ? '취소' :
+              order.shipping_status || '-',
+        order.payment_amount || 0,
+        `${order.shipping_address?.city || '-'} ${order.shipping_address?.address1 || '-'}`
       ].join(','))
     ].join('\n')
 
@@ -212,7 +215,7 @@ const Orders = () => {
                   </tr>
                 </thead>
                 <tbody className="table-body">
-                  {filteredOrders.map((order: Order) => (
+                  {filteredOrders.map((order: any) => (
                     <tr key={order.order_id} className="table-row">
                       <td className="table-cell">
                         <div className="text-sm font-medium text-gray-900">
@@ -221,10 +224,10 @@ const Orders = () => {
                       </td>
                       <td className="table-cell">
                         <div className="text-sm text-gray-900">
-                          {order.customer_name}
+                          {order.billing_name || '-'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {order.customer_email}
+                          {order.member_email || '-'}
                         </div>
                       </td>
                       <td className="table-cell">
@@ -236,25 +239,28 @@ const Orders = () => {
                         <div className="flex items-center text-sm text-gray-900">
                           <MapPin className="h-4 w-4 text-gray-400 mr-1" />
                           <div>
-                            <div>{order.shipping_address.city}</div>
+                            <div>{order.shipping_address?.city || '-'}</div>
                             <div className="text-gray-500">
-                              {order.shipping_address.address1}
+                              {order.shipping_address?.address1 || '-'}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="table-cell">
-                        <span className={`badge ${order.status === 'shipping' ? 'badge-info' :
-                          order.status === 'delivered' ? 'badge-success' :
-                            order.status === 'cancelled' ? 'badge-danger' :
+                        <span className={`badge ${order.shipping_status === 'M' ? 'badge-info' :
+                          order.shipping_status === 'D' ? 'badge-success' :
+                            order.shipping_status === 'C' ? 'badge-danger' :
                               'badge-warning'
                           }`}>
-                          {getShippingStatusLabel(order.status)}
+                          {order.shipping_status === 'M' ? '배송중' :
+                            order.shipping_status === 'D' ? '배송완료' :
+                              order.shipping_status === 'C' ? '취소' :
+                                order.shipping_status || '-'}
                         </span>
                       </td>
                       <td className="table-cell">
                         <div className="text-sm text-gray-900">
-                          {formatNumber(order.total_amount)}원
+                          {formatNumber(order.payment_amount)}원
                         </div>
                       </td>
                       <td className="table-cell">

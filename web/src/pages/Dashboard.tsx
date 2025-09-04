@@ -181,10 +181,10 @@ const Dashboard = () => {
                       </td>
                       <td className="table-cell">
                         <div className="text-sm text-gray-900">
-                          {order.customer_name}
+                          {order.billing_name || '-'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {order.customer_email}
+                          {order.member_email || '-'}
                         </div>
                       </td>
                       <td className="table-cell">
@@ -193,17 +193,20 @@ const Dashboard = () => {
                         </div>
                       </td>
                       <td className="table-cell">
-                        <span className={`badge ${order.status === 'shipping' ? 'badge-info' :
-                          order.status === 'delivered' ? 'badge-success' :
-                            order.status === 'cancelled' ? 'badge-danger' :
+                        <span className={`badge ${order.shipping_status === 'M' ? 'badge-info' :
+                          order.shipping_status === 'D' ? 'badge-success' :
+                            order.shipping_status === 'C' ? 'badge-danger' :
                               'badge-warning'
                           }`}>
-                          {order.status}
+                          {order.shipping_status === 'M' ? '배송중' :
+                            order.shipping_status === 'D' ? '배송완료' :
+                              order.shipping_status === 'C' ? '취소' :
+                                order.shipping_status || '-'}
                         </span>
                       </td>
                       <td className="table-cell">
                         <div className="text-sm text-gray-900">
-                          {formatNumber(order.total_amount)}원
+                          {formatNumber(order.payment_amount)}원
                         </div>
                       </td>
                     </tr>
