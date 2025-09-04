@@ -62,6 +62,7 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
    ```
 
 3. **연결 정보 확인**
+
    - Settings → Database → Connection string
    - `postgresql://postgres:[password]@[host]:5432/postgres` 형식
 
@@ -81,23 +82,14 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
    - `server` 폴더를 루트로 설정
 
 3. **환경변수 설정**
-   Railway 대시보드 → Variables에서 다음 변수들 설정:
+   Railway 대시보드 → Variables에서 필요한 환경 변수들 설정:
 
    ```env
-   NODE_ENV=production
-   PORT=3000
-   MALL_ID=your_mall_id
-   CAFE24_CLIENT_ID=your_client_id
-   CAFE24_CLIENT_SECRET=your_client_secret
-   OAUTH_REDIRECT_URI=https://api.your-domain.com/oauth/callback
-   DATABASE_URL=postgresql://postgres:[password]@[host]:5432/postgres
-   PARTNER_API_KEY=your_partner_api_key
-   CF_ACCESS_CLIENT_ID=your_cf_access_client_id
-   CF_ACCESS_CLIENT_SECRET=your_cf_access_client_secret
-   FRONTEND_URL=https://app.your-domain.com
+
    ```
 
 4. **커스텀 도메인 설정**
+
    - Railway → Settings → Domains
    - `api.your-domain.com` 추가
    - DNS 설정 안내에 따라 Cloudflare DNS에 CNAME 레코드 추가
@@ -123,12 +115,11 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
    - Site settings → Environment variables
 
    ```
-   VITE_API_BASE_URL=https://api.your-domain.com
-   VITE_APP_NAME=Auto Shipping
-   VITE_APP_VERSION=1.0.0
+
    ```
 
 4. **커스텀 도메인 설정**
+
    - Domain settings → Custom domains
    - `app.your-domain.com` 추가
 
@@ -158,6 +149,7 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
    ```
 
 4. **웹훅 엔드포인트 설정**
+
    - Service Auth 활성화
    - Service Token 생성
    - `/webhook/logiview` 경로만 Service Token 허용
@@ -172,6 +164,7 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
    ```
 
 2. **OAuth 설치 URL 생성**
+
    ```bash
    # 브라우저에서 접속
    https://{mall_id}.cafe24api.com/api/v2/oauth/authorize
@@ -195,6 +188,7 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
    ```
 
 2. **웹훅 테스트**
+
    ```bash
    curl -X POST https://api.your-domain.com/webhook/test \
      -H "Content-Type: application/json" \
@@ -269,6 +263,7 @@ railway logs
    - Cloudflare Pages 도메인과 일치하는지 확인
 
 4. **데이터베이스 연결 실패**
+
    - Supabase DATABASE_URL 확인
    - IP 허용 목록에 Railway IP 추가 (필요시)
 

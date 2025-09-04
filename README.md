@@ -129,46 +129,6 @@ cd web
 npm run build
 ```
 
-## 🔐 환경 설정
-
-### 백엔드 환경변수 (server/.env)
-
-```env
-# 환경 설정
-NODE_ENV=development
-PORT=3000
-
-# 카페24 API 설정
-MALL_ID=your_mall_id
-CAFE24_CLIENT_ID=your_client_id
-CAFE24_CLIENT_SECRET=your_client_secret
-OAUTH_REDIRECT_URI=http://localhost:3000/oauth/callback
-
-# 데이터베이스 설정
-DATABASE_URL=postgresql://username:password@localhost:5432/auto_shipping
-
-# 로지뷰 웹훅 인증
-PARTNER_API_KEY=your_partner_api_key
-
-# Cloudflare Access Service Token (Zero Trust)
-CF_ACCESS_CLIENT_ID=your_cf_access_client_id
-CF_ACCESS_CLIENT_SECRET=your_cf_access_client_secret
-
-# 프론트엔드 URL (CORS)
-FRONTEND_URL=http://localhost:5173
-```
-
-### 프론트엔드 환경변수 (web/.env)
-
-```env
-# API 서버 URL
-VITE_API_BASE_URL=http://localhost:3000
-
-# 앱 설정
-VITE_APP_NAME=Auto Shipping
-VITE_APP_VERSION=1.0.0
-```
-
 ## 📝 API 문서
 
 ### OAuth API
