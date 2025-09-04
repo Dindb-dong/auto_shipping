@@ -115,7 +115,7 @@ router.get('/:orderId', async (req: Request, res: Response) => {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'X-Cafe24-Api-Version': '2022-03-01',
+        'X-Cafe24-Api-Version': '2025-06-01',
       },
     });
 

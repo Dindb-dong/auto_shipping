@@ -181,42 +181,68 @@ export async function testDatabaseConnection(retries: number = 3): Promise<boole
 
 export { pool };
 
+// expires_in 값으로 만료 시간 계산하는 헬퍼 함수
+function calculateExpiresAtFromExpiresIn(expiresIn: any): Date {
+  let expiresInSeconds: number;
+
+  if (typeof expiresIn === 'number' &&
+    !isNaN(expiresIn) &&
+    isFinite(expiresIn) &&
+    expiresIn > 0) {
+    expiresInSeconds = expiresIn;
+  } else if (typeof expiresIn === 'string') {
+    const parsed = parseInt(expiresIn, 10);
+    if (!isNaN(parsed) && isFinite(parsed) && parsed > 0) {
+      expiresInSeconds = parsed;
+    } else {
+      console.warn('⚠️ Invalid expires_in string, using default 2 hours');
+      expiresInSeconds = 7200; // 2시간 기본값
+    }
+  } else {
+    console.warn('⚠️ Invalid expires_in value, using default 2 hours');
+    expiresInSeconds = 7200; // 2시간 기본값
+  }
+
+  return new Date(Date.now() + expiresInSeconds * 1000);
+}
+
 // OAuth 토큰 저장 (특정 몰)
 export async function saveTokensForMall(mallId: string, tokens: Cafe24TokenResponse): Promise<void> {
   const client = await pool.connect();
   try {
-    // expires_in 값 검증 및 디버깅
+    // 토큰 데이터 검증 및 디버깅
     console.log('🔍 Token data received:', {
       mallId,
       expires_in: tokens.expires_in,
+      expires_at: tokens.expires_at,
       expires_in_type: typeof tokens.expires_in,
+      expires_at_type: typeof tokens.expires_at,
       access_token_length: tokens.access_token?.length,
       refresh_token_length: tokens.refresh_token?.length
     });
 
-    // expires_in 값 검증
-    let expiresInSeconds: number;
-    if (typeof tokens.expires_in === 'number' &&
-      !isNaN(tokens.expires_in) &&
-      isFinite(tokens.expires_in) &&
-      tokens.expires_in > 0) {
-      expiresInSeconds = tokens.expires_in;
-    } else if (typeof tokens.expires_in === 'string') {
-      const parsed = parseInt(tokens.expires_in, 10);
-      if (!isNaN(parsed) && isFinite(parsed) && parsed > 0) {
-        expiresInSeconds = parsed;
-      } else {
-        console.warn('⚠️ Invalid expires_in string, using default 2 hours');
-        expiresInSeconds = 7200; // 2시간 기본값
+    // 만료 시간 계산
+    let expiresAt: Date;
+
+    // 1. expires_at 필드가 있으면 직접 사용
+    if (tokens.expires_at) {
+      try {
+        expiresAt = new Date(tokens.expires_at);
+        if (!isNaN(expiresAt.getTime())) {
+          console.log('📅 Using expires_at from token response:', expiresAt.toISOString());
+        } else {
+          throw new Error('Invalid expires_at date');
+        }
+      } catch (error) {
+        console.warn('⚠️ Invalid expires_at, falling back to expires_in calculation');
+        expiresAt = calculateExpiresAtFromExpiresIn(tokens.expires_in);
       }
     } else {
-      console.warn('⚠️ Invalid expires_in value, using default 2 hours');
-      expiresInSeconds = 7200; // 2시간 기본값
+      // 2. expires_in 필드로 계산
+      expiresAt = calculateExpiresAtFromExpiresIn(tokens.expires_in);
     }
 
-    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
-    console.log('📅 Calculated expiration:', {
-      expiresInSeconds,
+    console.log('📅 Final expiration:', {
       expiresAt: expiresAt.toISOString(),
       isValid: !isNaN(expiresAt.getTime())
     });

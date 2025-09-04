@@ -258,12 +258,22 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
     const newTokens = await refreshCafe24Token(mall_id);
 
+    // 만료 시간 계산
+    let expiresAt: Date;
+    if (newTokens.expires_at) {
+      expiresAt = new Date(newTokens.expires_at);
+    } else if (newTokens.expires_in) {
+      expiresAt = new Date(Date.now() + newTokens.expires_in * 1000);
+    } else {
+      expiresAt = new Date(Date.now() + 7200 * 1000); // 2시간 기본값
+    }
+
     res.json({
       success: true,
       data: {
         mall_id,
         token_preview: newTokens.access_token.substring(0, 20) + '...',
-        expires_at: new Date(Date.now() + newTokens.expires_in * 1000).toISOString()
+        expires_at: expiresAt.toISOString()
       }
     });
   } catch (error: any) {

@@ -25,6 +25,7 @@ function testTimestampGeneration(expiresIn, description) {
   
   // 검증 로직 (database.ts와 동일)
   let expiresInSeconds;
+
   if (typeof expiresIn === 'number' && 
       !isNaN(expiresIn) && 
       isFinite(expiresIn) && 

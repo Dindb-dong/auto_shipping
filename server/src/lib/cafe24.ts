@@ -4,9 +4,18 @@ import { z } from 'zod';
 const Cafe24TokenResponse = z.object({
   access_token: z.string(),
   refresh_token: z.string(),
-  expires_in: z.number(),
-  token_type: z.string(),
-  scope: z.string(),
+  expires_in: z.number().optional(), // 카페24에서는 expires_at을 사용할 수도 있음
+  expires_at: z.string().optional(), // 카페24에서 제공하는 절대 시간
+  token_type: z.string().optional(),
+  scope: z.string().optional(),
+  // 추가 필드들
+  client_id: z.string().optional(),
+  mall_id: z.string().optional(),
+  user_id: z.string().optional(),
+  scopes: z.array(z.string()).optional(),
+  issued_at: z.string().optional(),
+  shop_no: z.string().optional(),
+  refresh_token_expires_at: z.string().optional(),
 });
 
 const Cafe24ShipmentResponse = z.object({
@@ -111,7 +120,7 @@ export class Cafe24Client {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'X-Cafe24-Api-Version': '2022-03-01',
+        'X-Cafe24-Api-Version': '2025-06-01',
       },
       body: JSON.stringify({
         shipment: {
@@ -149,7 +158,7 @@ export class Cafe24Client {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'X-Cafe24-Api-Version': '2022-03-01',
+        'X-Cafe24-Api-Version': '2025-06-01',
       },
       body: JSON.stringify({
         shipment: shipmentData,
@@ -189,7 +198,7 @@ export class Cafe24Client {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'X-Cafe24-Api-Version': '2022-03-01',
+        'X-Cafe24-Api-Version': '2025-06-01',
       },
     });
 
@@ -214,7 +223,7 @@ export class Cafe24Client {
       ...options,
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'X-Cafe24-Api-Version': '2022-03-01',
+        'X-Cafe24-Api-Version': '2025-06-01',
         ...options.headers,
       },
     });
@@ -229,7 +238,7 @@ export class Cafe24Client {
         ...options,
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'X-Cafe24-Api-Version': '2022-03-01',
+          'X-Cafe24-Api-Version': '2025-06-01',
           ...options.headers,
         },
       });
