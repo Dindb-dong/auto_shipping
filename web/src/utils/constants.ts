@@ -79,6 +79,7 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refresh_token',
   USER_PREFERENCES: 'user_preferences',
   THEME: 'theme',
+  ADMIN_SESSION: 'admin_session',
 } as const
 
 // 테마 색상

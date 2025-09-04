@@ -1,20 +1,44 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from 'react-query'
-import {
-  Settings as SettingsIcon,
-  Link,
-  Key,
-  Database,
-  TestTube,
-  CheckCircle,
-  AlertCircle,
-  ExternalLink
-} from 'lucide-react'
+import { Link, Key, Database, TestTube, ExternalLink } from 'lucide-react'
 import { oauthApi, webhookApi } from '../utils/api'
-import { formatDate } from '../utils/helpers'
+import { STORAGE_KEYS } from '../utils/constants'
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('oauth')
+  const [adminId, setAdminId] = useState('')
+  const [adminPw, setAdminPw] = useState('')
+  const [isAuthed, setIsAuthed] = useState(false)
+
+  const adminUser = useMemo(() => import.meta.env.VITE_ADMIN_USER as string | undefined, [])
+  const adminPass = useMemo(() => import.meta.env.VITE_ADMIN_PASS as string | undefined, [])
+
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.ADMIN_SESSION)
+    setIsAuthed(saved === 'true')
+  }, [])
+
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!adminUser || !adminPass) {
+      alert('관리자 계정 환경변수가 설정되지 않았습니다.')
+      return
+    }
+    if (adminId === adminUser && adminPw === adminPass) {
+      localStorage.setItem(STORAGE_KEYS.ADMIN_SESSION, 'true')
+      setIsAuthed(true)
+      setAdminPw('')
+    } else {
+      alert('아이디 또는 비밀번호가 올바르지 않습니다.')
+    }
+  }
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION)
+    setIsAuthed(false)
+    setAdminId('')
+    setAdminPw('')
+  }
 
   // OAuth 상태 조회
   const { data: oauthStatus, refetch: refetchOauth } = useQuery(
@@ -77,11 +101,56 @@ const Settings = () => {
     { id: 'test', name: '테스트', icon: TestTube },
   ]
 
+  if (!isAuthed) {
+    return (
+      <div className="max-w-md mx-auto">
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-lg font-medium text-gray-900">관리자 로그인</h3>
+            <p className="mt-1 text-sm text-gray-500">설정 페이지는 관리자만 접근 가능합니다.</p>
+          </div>
+          <div className="card-body">
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">아이디</label>
+                <input
+                  type="text"
+                  value={adminId}
+                  onChange={(e) => setAdminId(e.target.value)}
+                  className="mt-1 input"
+                  placeholder="관리자 아이디"
+                  autoComplete="username"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">비밀번호</label>
+                <input
+                  type="password"
+                  value={adminPw}
+                  onChange={(e) => setAdminPw(e.target.value)}
+                  className="mt-1 input"
+                  placeholder="관리자 비밀번호"
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
+              <button type="submit" className="btn btn-primary w-full">로그인</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* 페이지 헤더 */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">설정</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">설정</h1>
+          <button onClick={handleAdminLogout} className="btn btn-secondary">로그아웃</button>
+        </div>
         <p className="mt-1 text-sm text-gray-500">
           시스템 설정을 관리하고 상태를 확인하세요.
         </p>

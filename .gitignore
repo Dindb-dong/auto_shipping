@@ -12,3 +12,5 @@
 /server/dist.zip.sha256.txt.sha256
 /web/.env
 /server/.env
+/server/env.example
+/web/env.example
