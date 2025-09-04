@@ -21,20 +21,8 @@ const LogiviewWebhookSchema = z.object({
 
 type LogiviewWebhookData = z.infer<typeof LogiviewWebhookSchema>;
 
-// Cloudflare Zero Trust 인증 미들웨어
+// 웹훅 인증 미들웨어 (API Key 전용)
 function authenticateWebhook(req: Request, res: Response, next: Function) {
-  // Service Token 인증 (Cloudflare Zero Trust)
-  const clientId = req.headers['cf-access-client-id'];
-  const clientSecret = req.headers['cf-access-client-secret'];
-
-  if (process.env.CF_ACCESS_CLIENT_ID && process.env.CF_ACCESS_CLIENT_SECRET) {
-    if (clientId !== process.env.CF_ACCESS_CLIENT_ID ||
-      clientSecret !== process.env.CF_ACCESS_CLIENT_SECRET) {
-      return res.status(401).json({ error: 'Unauthorized: Invalid service token' });
-    }
-  }
-
-  // API Key 인증 (대안)
   const apiKey = req.headers['x-api-key'];
   if (process.env.PARTNER_API_KEY && apiKey !== process.env.PARTNER_API_KEY) {
     return res.status(401).json({ error: 'Unauthorized: Invalid API key' });

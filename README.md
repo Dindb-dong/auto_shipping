@@ -163,7 +163,6 @@ npm run build
 - **백엔드**: Railway (Express.js)
 - **프론트엔드**: Netlify (React)
 - **데이터베이스**: Supabase (PostgreSQL)
-- **접근제어**: Cloudflare Zero Trust
 
 자세한 배포 방법은 [DEPLOYMENT.md](./DEPLOYMENT.md)를 참조하세요.
 
@@ -179,8 +178,8 @@ npm run build
 # 3. Netlify에 프론트엔드 배포
 # Netlify에서 GitHub 리포지토리 연결 (web 폴더)
 
-# 4. 도메인 및 Zero Trust 설정
-# DEPLOYMENT.md 참조
+# 4. 도메인 및 보안 설정
+# 웹훅은 `X-API-KEY` 헤더 기반으로 보호합니다. 자세한 내용은 DEPLOYMENT.md를 참조하세요.
 ```
 
 ## 🤝 기여하기

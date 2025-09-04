@@ -235,7 +235,7 @@ const Settings = () => {
                     <div className="p-4 border border-gray-200 rounded-lg">
                       <h4 className="text-sm font-medium text-gray-900 mb-2">콜백 URL</h4>
                       <p className="text-sm text-gray-500">
-                        https://api.your-domain.com/oauth/callback
+                        https://autoshipping-production.up.railway.app/oauth/callback
                       </p>
                     </div>
                   </div>
@@ -283,7 +283,7 @@ const Settings = () => {
                       <h4 className="text-sm font-medium text-gray-900 mb-2">웹훅 URL</h4>
                       <div className="flex items-center space-x-2">
                         <code className="flex-1 p-2 bg-gray-100 rounded text-sm">
-                          https://api.your-domain.com/webhook/logiview
+                          https://autoshipping-production.up.railway.app/webhook/logiview
                         </code>
                         <button className="btn btn-secondary">
                           복사
@@ -295,18 +295,13 @@ const Settings = () => {
                       <h4 className="text-sm font-medium text-gray-900 mb-2">인증 헤더</h4>
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-500 w-20">Client ID:</span>
+                          <span className="text-sm text-gray-500 w-24">X-API-KEY:</span>
                           <code className="flex-1 p-2 bg-gray-100 rounded text-sm">
-                            your_cf_access_client_id
-                          </code>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-500 w-20">Secret:</span>
-                          <code className="flex-1 p-2 bg-gray-100 rounded text-sm">
-                            your_cf_access_client_secret
+                            your_partner_api_key
                           </code>
                         </div>
                       </div>
+                      <p className="mt-2 text-xs text-gray-500">관리자에게 발급받은 API 키를 로지뷰 웹훅 요청 헤더에 포함하세요.</p>
                     </div>
                   </div>
                 </div>

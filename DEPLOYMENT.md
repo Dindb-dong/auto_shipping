@@ -1,11 +1,11 @@
 # 배포 가이드
 
-이 문서는 Auto Shipping 시스템을 Railway, Cloudflare Pages, Supabase에 배포하는 방법을 설명합니다.
+이 문서는 Auto Shipping 시스템을 Railway, Netlify, Supabase에 배포하는 방법을 설명합니다.
 
 ## 🏗️ 아키텍처 개요
 
 ```
-[로지뷰] ──► https://api.your-domain.com/webhook/logiview (Zero Trust: Service Token)
+[로지뷰] ──► https://api.your-domain.com/webhook/logiview (Header: X-API-KEY)
                            │
                            ▼
                      [Railway: Express]
@@ -18,10 +18,10 @@
     카페24 Admin API (shipments POST/PUT)
 
 [Netlify: 프론트] https://app.your-domain.com
-  └ 설정/대시보드/테스트 호출 (Zero Trust: Email/SSO)
+  └ 설정/대시보드/테스트 호출
 
-DNS: Cloudflare
-접근제어: Cloudflare Zero Trust
+DNS: Cloudflare (또는 사용 중인 DNS 호스팅)
+접근제어: X-API-KEY 기반 단순 헤더 검증
 DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
 ```
 
@@ -92,7 +92,7 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
 
    - Railway → Settings → Domains
    - `api.your-domain.com` 추가
-   - DNS 설정 안내에 따라 Cloudflare DNS에 CNAME 레코드 추가
+   - DNS 설정 안내에 따라 DNS에 CNAME 레코드 추가
 
 ### 3단계: Netlify 프론트엔드 배포
 
@@ -123,36 +123,18 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
    - Domain settings → Custom domains
    - `app.your-domain.com` 추가
 
-### 4단계: Cloudflare Zero Trust 설정
+### 4단계: 보안 설정 (API Key)
 
-1. **Zero Trust 활성화**
+1. **웹훅 보호 방식**
 
-   - Cloudflare 대시보드 → Zero Trust
-   - Access → Applications → Add an application
+   - 로지뷰에서 호출 시 `X-API-KEY` 헤더를 포함하도록 설정합니다.
+   - 서버의 `PARTNER_API_KEY` 환경변수와 일치하는지 확인합니다.
 
-2. **프론트엔드 앱 보호**
+2. **환경변수 예시**
 
+   ```env
+   PARTNER_API_KEY=your_partner_api_key
    ```
-   Application name: Auto Shipping Frontend
-   Subdomain: app
-   Domain: your-domain.com
-   Path: /*
-   ```
-
-3. **백엔드 API 보호**
-
-   ```
-   Application name: Auto Shipping API
-   Subdomain: api
-   Domain: your-domain.com
-   Path: /*
-   ```
-
-4. **웹훅 엔드포인트 설정**
-
-   - Service Auth 활성화
-   - Service Token 생성
-   - `/webhook/logiview` 경로만 Service Token 허용
 
 ### 5단계: 카페24 앱 설정
 
@@ -183,8 +165,7 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
    URL: https://api.your-domain.com/webhook/logiview
    Method: POST
    Headers:
-     Cf-Access-Client-Id: your_cf_access_client_id
-     Cf-Access-Client-Secret: your_cf_access_client_secret
+     X-API-KEY: your_partner_api_key
    ```
 
 2. **웹훅 테스트**
@@ -192,8 +173,7 @@ DB: Supabase (Postgres + Auth 비활성, RLS는 로그 테이블 off)
    ```bash
    curl -X POST https://api.your-domain.com/webhook/test \
      -H "Content-Type: application/json" \
-     -H "Cf-Access-Client-Id: your_cf_access_client_id" \
-     -H "Cf-Access-Client-Secret: your_cf_access_client_secret" \
+     -H "X-API-KEY: your_partner_api_key" \
      -d '{
        "order_id": "TEST-123",
        "tracking_no": "123456789012",
@@ -236,7 +216,6 @@ railway logs
 ### Netlify Analytics
 
 - Site settings → Analytics에서 프론트엔드 성능 확인
-- Zero Trust → Analytics에서 접근 로그 확인
 
 ### Supabase 모니터링
 
@@ -254,13 +233,12 @@ railway logs
 
 2. **웹훅 수신 실패**
 
-   - Cloudflare Zero Trust Service Token 확인
-   - 로지뷰에서 보내는 헤더 형식 확인
+   - 로지뷰에서 보내는 `X-API-KEY` 헤더 확인
 
 3. **CORS 오류**
 
    - `FRONTEND_URL` 환경변수 확인
-   - Cloudflare Pages 도메인과 일치하는지 확인
+   - 프론트엔드 도메인과 일치하는지 확인
 
 4. **데이터베이스 연결 실패**
 
@@ -273,8 +251,8 @@ railway logs
 # Railway 로그
 railway logs --tail
 
-# Cloudflare Pages 빌드 로그
-# Pages 대시보드에서 확인
+# Netlify 빌드 로그
+# Netlify 대시보드에서 확인
 
 # Supabase 로그
 # Supabase 대시보드 → Logs에서 확인
