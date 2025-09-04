@@ -23,21 +23,23 @@ export type Cafe24ShipmentResponse = z.infer<typeof Cafe24ShipmentResponse>;
 
 // 카페24 API 클라이언트
 export class Cafe24Client {
-  private mallId: string;
   private clientId: string;
   private clientSecret: string;
-  private baseUrl: string;
 
   constructor() {
-    this.mallId = process.env.MALL_ID!;
     this.clientId = process.env.CAFE24_CLIENT_ID!;
     this.clientSecret = process.env.CAFE24_CLIENT_SECRET!;
-    this.baseUrl = `https://${this.mallId}.cafe24api.com/api/v2`;
   }
 
-  // OAuth 코드를 액세스 토큰으로 교환
-  async exchangeCode(code: string): Promise<Cafe24TokenResponse> {
-    const response = await fetch(`${this.baseUrl}/oauth/token`, {
+  // 특정 몰의 API 호출을 위한 헬퍼 함수
+  private getBaseUrl(mallId: string): string {
+    return `https://${mallId}.cafe24api.com/api/v2`;
+  }
+
+  // OAuth 코드를 액세스 토큰으로 교환 (특정 몰)
+  async exchangeCode(mallId: string, code: string, redirectUri: string): Promise<Cafe24TokenResponse> {
+    const baseUrl = this.getBaseUrl(mallId);
+    const response = await fetch(`${baseUrl}/oauth/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -47,7 +49,7 @@ export class Cafe24Client {
         client_id: this.clientId,
         client_secret: this.clientSecret,
         code,
-        redirect_uri: process.env.OAUTH_REDIRECT_URI!,
+        redirect_uri: redirectUri,
       }).toString(),
     });
 
@@ -60,9 +62,10 @@ export class Cafe24Client {
     return Cafe24TokenResponse.parse(data);
   }
 
-  // 리프레시 토큰으로 액세스 토큰 갱신
-  async refreshToken(refreshToken: string): Promise<Cafe24TokenResponse> {
-    const response = await fetch(`${this.baseUrl}/oauth/token`, {
+  // 리프레시 토큰으로 액세스 토큰 갱신 (특정 몰)
+  async refreshToken(mallId: string, refreshToken: string): Promise<Cafe24TokenResponse> {
+    const baseUrl = this.getBaseUrl(mallId);
+    const response = await fetch(`${baseUrl}/oauth/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -84,8 +87,9 @@ export class Cafe24Client {
     return Cafe24TokenResponse.parse(data);
   }
 
-  // 배송 정보 생성/수정
+  // 배송 정보 생성/수정 (특정 몰)
   async createShipment(
+    mallId: string,
     accessToken: string,
     shipmentData: {
       order_id: string;
@@ -95,7 +99,8 @@ export class Cafe24Client {
       items?: any[];
     }
   ): Promise<Cafe24ShipmentResponse> {
-    const response = await fetch(`${this.baseUrl}/admin/orders/${shipmentData.order_id}/shipments`, {
+    const baseUrl = this.getBaseUrl(mallId);
+    const response = await fetch(`${baseUrl}/admin/orders/${shipmentData.order_id}/shipments`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -121,8 +126,9 @@ export class Cafe24Client {
     return Cafe24ShipmentResponse.parse(data);
   }
 
-  // 배송 정보 수정
+  // 배송 정보 수정 (특정 몰)
   async updateShipment(
+    mallId: string,
     accessToken: string,
     orderId: string,
     shipmentData: {
@@ -131,7 +137,8 @@ export class Cafe24Client {
       status: string;
     }
   ): Promise<Cafe24ShipmentResponse> {
-    const response = await fetch(`${this.baseUrl}/admin/orders/${orderId}/shipments`, {
+    const baseUrl = this.getBaseUrl(mallId);
+    const response = await fetch(`${baseUrl}/admin/orders/${orderId}/shipments`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -152,8 +159,9 @@ export class Cafe24Client {
     return Cafe24ShipmentResponse.parse(data);
   }
 
-  // 주문 목록 조회
+  // 주문 목록 조회 (특정 몰)
   async getOrders(
+    mallId: string,
     accessToken: string,
     params: {
       start_date?: string;
@@ -163,6 +171,7 @@ export class Cafe24Client {
       offset?: number;
     } = {}
   ) {
+    const baseUrl = this.getBaseUrl(mallId);
     const searchParams = new URLSearchParams();
     if (params.start_date) searchParams.append('start_date', params.start_date);
     if (params.end_date) searchParams.append('end_date', params.end_date);
@@ -170,7 +179,7 @@ export class Cafe24Client {
     if (params.limit) searchParams.append('limit', params.limit.toString());
     if (params.offset) searchParams.append('offset', params.offset.toString());
 
-    const response = await fetch(`${this.baseUrl}/admin/orders?${searchParams}`, {
+    const response = await fetch(`${baseUrl}/admin/orders?${searchParams}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -181,6 +190,55 @@ export class Cafe24Client {
     if (!response.ok) {
       const error = await response.text();
       throw new Error(`Orders fetch failed: ${error}`);
+    }
+
+    return await response.json();
+  }
+
+  // API 호출 헬퍼 함수 (자동 토큰 갱신 포함)
+  async callApiWithToken(mallId: string, path: string, options: RequestInit = {}): Promise<any> {
+    const { getValidAccessTokenForMall } = await import('./database');
+
+    let accessToken = await getValidAccessTokenForMall(mallId);
+
+    const baseUrl = this.getBaseUrl(mallId);
+    const url = `${baseUrl}${path}`;
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'X-Cafe24-Api-Version': '2022-03-01',
+        ...options.headers,
+      },
+    });
+
+    // 401 에러 시 토큰 갱신 후 재시도
+    if (response.status === 401) {
+      const { refreshCafe24Token } = await import('./database');
+      const newTokens = await refreshCafe24Token(mallId);
+      accessToken = newTokens.access_token;
+
+      const retryResponse = await fetch(url, {
+        ...options,
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Cafe24-Api-Version': '2022-03-01',
+          ...options.headers,
+        },
+      });
+
+      if (!retryResponse.ok) {
+        const error = await retryResponse.text();
+        throw new Error(`API call failed: ${retryResponse.status} ${error}`);
+      }
+
+      return await retryResponse.json();
+    }
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`API call failed: ${response.status} ${error}`);
     }
 
     return await response.json();

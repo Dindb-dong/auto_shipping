@@ -1,6 +1,7 @@
 import express from 'express';
 import cors, { CorsOptions } from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import oauth from './routes/oauth';
 import webhook from './routes/webhook';
@@ -48,6 +49,9 @@ app.options('*', cors(corsOptions), (_req, res) => res.sendStatus(204));
 // JSON 파싱
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// 쿠키 파싱
+app.use(cookieParser());
 
 // 헬스 체크
 app.get('/health', (_, res) => {

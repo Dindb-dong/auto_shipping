@@ -9,10 +9,23 @@ const Settings = () => {
   const [adminId, setAdminId] = useState('')
   const [adminPw, setAdminPw] = useState('')
   const [isAuthed, setIsAuthed] = useState(false)
+  const [mallId, setMallId] = useState('')
+  const [installedMallId, setInstalledMallId] = useState('')
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ADMIN_SESSION)
     setIsAuthed(saved === 'true')
+
+    // URL 파라미터에서 설치 완료 정보 확인
+    const urlParams = new URLSearchParams(window.location.search)
+    const installed = urlParams.get('installed')
+    const mallIdParam = urlParams.get('mall_id')
+
+    if (installed === '1' && mallIdParam) {
+      setInstalledMallId(mallIdParam)
+      // URL 파라미터 정리
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
   }, [])
 
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -56,12 +69,13 @@ const Settings = () => {
     }
   }
 
-  // OAuth 상태 조회
+  // OAuth 상태 조회 (mall_id가 있을 때만)
   const { data: oauthStatus, refetch: refetchOauth } = useQuery(
-    'oauthStatus',
-    oauthApi.getStatus,
+    ['oauthStatus', mallId],
+    () => oauthApi.getStatus(mallId),
     {
       refetchInterval: 30000,
+      enabled: !!mallId, // mall_id가 있을 때만 쿼리 실행
     }
   )
 
@@ -75,13 +89,19 @@ const Settings = () => {
   )
 
   const handleOAuthInstall = async () => {
+    if (!mallId.trim()) {
+      alert('몰 ID를 입력해주세요.')
+      return
+    }
+
     try {
-      const response = await oauthApi.getInstallUrl()
-      if (response.success && response.data?.install_url) {
-        window.open(response.data.install_url, '_blank')
-      }
+      // 백엔드 OAuth 설치 엔드포인트로 직접 리다이렉트
+      const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+      const installUrl = `${backendUrl}/oauth/install?mall_id=${encodeURIComponent(mallId.trim())}`
+      window.location.href = installUrl
     } catch (error) {
       console.error('OAuth install error:', error)
+      alert('OAuth 설치 중 오류가 발생했습니다.')
     }
   }
 
@@ -196,6 +216,21 @@ const Settings = () => {
         {/* 카페24 연동 */}
         {activeTab === 'oauth' && (
           <div className="space-y-6">
+            {/* 설치 완료 메시지 */}
+            {installedMallId && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <div className="h-5 w-5 text-green-400 mr-3">✅</div>
+                  <div>
+                    <h4 className="text-sm font-medium text-green-800">카페24 연동 완료!</h4>
+                    <p className="text-sm text-green-600">
+                      몰 ID <code className="bg-green-100 px-1 rounded">{installedMallId}</code>의 연동이 성공적으로 완료되었습니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="card">
               <div className="card-header">
                 <h3 className="text-lg font-medium text-gray-900">카페24 OAuth 연동</h3>
@@ -205,45 +240,81 @@ const Settings = () => {
               </div>
               <div className="card-body">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center">
-                      <div className={`h-3 w-3 rounded-full mr-3 ${oauthStatus?.data?.has_token ? 'bg-green-400' : 'bg-red-400'
-                        }`} />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {oauthStatus?.data?.has_token ? '연동됨' : '연동 안됨'}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {oauthStatus?.data?.has_token
-                            ? `토큰: ${oauthStatus.data.token_preview}`
-                            : '카페24 앱을 설치해주세요.'
-                          }
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => refetchOauth()}
-                        className="btn btn-secondary"
-                      >
-                        상태 새로고침
-                      </button>
+                  {/* 몰 ID 입력 */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      몰 ID (Mall ID)
+                    </label>
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={mallId}
+                        onChange={(e) => setMallId(e.target.value)}
+                        className="flex-1 input"
+                        placeholder="예: yourmall"
+                        disabled={!!oauthStatus?.data?.has_token}
+                      />
                       {!oauthStatus?.data?.has_token && (
                         <button
                           onClick={handleOAuthInstall}
                           className="btn btn-primary"
+                          disabled={!mallId.trim()}
                         >
                           <ExternalLink className="h-4 w-4 mr-2" />
                           앱 설치
                         </button>
                       )}
                     </div>
+                    <p className="text-xs text-gray-500">
+                      카페24 관리자 페이지에서 확인할 수 있는 몰 ID를 입력하세요.
+                    </p>
                   </div>
+
+                  {/* 연동 상태 */}
+                  {mallId && (
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center">
+                        <div className={`h-3 w-3 rounded-full mr-3 ${oauthStatus?.data?.has_token ? 'bg-green-400' : 'bg-red-400'
+                          }`} />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {oauthStatus?.data?.has_token ? '연동됨' : '연동 안됨'}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {oauthStatus?.data?.has_token
+                              ? `토큰: ${oauthStatus.data.token_preview}`
+                              : '카페24 앱을 설치해주세요.'
+                            }
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => refetchOauth()}
+                          className="btn btn-secondary"
+                        >
+                          상태 새로고침
+                        </button>
+                        {oauthStatus?.data?.has_token && (
+                          <button
+                            onClick={() => {
+                              setMallId('')
+                              setInstalledMallId('')
+                            }}
+                            className="btn btn-secondary"
+                          >
+                            다른 몰 연동
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="p-4 border border-gray-200 rounded-lg">
                       <h4 className="text-sm font-medium text-gray-900 mb-2">필요 권한</h4>
                       <ul className="text-sm text-gray-500 space-y-1">
+                        <li>• mall.read_product (상품 조회)</li>
                         <li>• mall.read_order (주문 조회)</li>
                         <li>• mall.write_order (주문 수정)</li>
                       </ul>

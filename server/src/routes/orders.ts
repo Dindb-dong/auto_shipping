@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { cafe24Client } from '../lib/cafe24';
-import { getValidAccessToken, getShipmentLogs } from '../lib/database';
+import { getValidAccessToken, getValidAccessTokenForMall, getShipmentLogs } from '../lib/database';
 
 const router = Router();
 
@@ -21,11 +21,18 @@ router.get('/', async (req: Request, res: Response) => {
     // 파라미터 검증
     const queryParams = OrderQuerySchema.parse(req.query);
 
+    // TODO: mall_id를 어떻게 가져올지 결정해야 함
+    // 임시로 환경변수에서 가져옴
+    const mallId = process.env.MALL_ID;
+    if (!mallId) {
+      throw new Error('MALL_ID environment variable is required');
+    }
+
     // 유효한 액세스 토큰 가져오기
-    const accessToken = await getValidAccessToken();
+    const accessToken = await getValidAccessTokenForMall(mallId);
 
     // 카페24에서 주문 목록 조회
-    const orders: any = await cafe24Client.getOrders(accessToken, {
+    const orders: any = await cafe24Client.getOrders(mallId, accessToken, {
       start_date: queryParams.start_date,
       end_date: queryParams.end_date,
       status: queryParams.status,
@@ -93,11 +100,18 @@ router.get('/:orderId', async (req: Request, res: Response) => {
       });
     }
 
+    // TODO: mall_id를 어떻게 가져올지 결정해야 함
+    // 임시로 환경변수에서 가져옴
+    const mallId = process.env.MALL_ID;
+    if (!mallId) {
+      throw new Error('MALL_ID environment variable is required');
+    }
+
     // 유효한 액세스 토큰 가져오기
-    const accessToken = await getValidAccessToken();
+    const accessToken = await getValidAccessTokenForMall(mallId);
 
     // 카페24에서 특정 주문 조회
-    const response = await fetch(`https://${process.env.MALL_ID}.cafe24api.com/api/v2/admin/orders/${orderId}`, {
+    const response = await fetch(`https://${mallId}.cafe24api.com/api/v2/admin/orders/${orderId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -169,8 +183,15 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
       end_date?: string;
     };
 
+    // TODO: mall_id를 어떻게 가져올지 결정해야 함
+    // 임시로 환경변수에서 가져옴
+    const mallId = process.env.MALL_ID;
+    if (!mallId) {
+      throw new Error('MALL_ID environment variable is required');
+    }
+
     // 유효한 액세스 토큰 가져오기
-    const accessToken = await getValidAccessToken();
+    const accessToken = await getValidAccessTokenForMall(mallId);
 
     // 각 배송 상태별로 주문 조회
     const statuses = ['shipping', 'delivered', 'returned', 'cancelled'];
@@ -178,7 +199,7 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
 
     for (const status of statuses) {
       try {
-        const orders: any = await cafe24Client.getOrders(accessToken, {
+        const orders: any = await cafe24Client.getOrders(mallId, accessToken, {
           start_date,
           end_date,
           status,

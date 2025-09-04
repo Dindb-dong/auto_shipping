@@ -1,64 +1,138 @@
 import { Router, Request, Response } from 'express';
-import { cafe24Client } from '../lib/cafe24';
-import { saveTokens, saveLoginLog } from '../lib/database';
+import crypto from 'crypto';
+import { saveTokensForMall, getTokensForMall, refreshCafe24Token, saveLoginLog } from '../lib/database';
+import { Cafe24TokenResponse } from '../lib/cafe24';
 
 const router = Router();
 
+// OAuth 설치 시작 엔드포인트
+router.get('/install', (req: Request, res: Response) => {
+  const mallId = String(req.query.mall_id || '').trim();
+
+  if (!mallId) {
+    return res.status(400).send(`
+      <html>
+        <body>
+          <h1>Mall ID Required</h1>
+          <p>mall_id parameter is required.</p>
+          <p>Usage: /oauth/install?mall_id=your_mall_id</p>
+        </body>
+      </html>
+    `);
+  }
+
+  const clientId = process.env.CAFE24_CLIENT_ID;
+  const backendUrl = process.env.BACKEND_URL;
+
+  if (!clientId || !backendUrl) {
+    return res.status(500).send(`
+      <html>
+        <body>
+          <h1>Configuration Error</h1>
+          <p>OAuth configuration missing. Please check environment variables.</p>
+        </body>
+      </html>
+    `);
+  }
+
+  // CSRF 방지를 위한 state 생성
+  const state = crypto.randomBytes(16).toString('hex');
+
+  // 필요한 스코프 설정
+  const scope = [
+    'mall.read_product',
+    'mall.read_order',
+    'mall.write_order'
+  ].join(' ');
+
+  // 카페24 권한동의 URL 생성
+  const authorizeUrl = new URL(`https://${mallId}.cafe24api.com/api/v2/oauth/authorize`);
+  authorizeUrl.searchParams.set('response_type', 'code');
+  authorizeUrl.searchParams.set('client_id', clientId);
+  authorizeUrl.searchParams.set('redirect_uri', `${backendUrl}/oauth/callback`);
+  authorizeUrl.searchParams.set('state', state);
+  authorizeUrl.searchParams.set('scope', scope);
+
+  // state를 세션에 저장 (실제로는 DB나 Redis에 저장하는 것이 좋음)
+  // 여기서는 간단히 쿠키에 저장
+  res.cookie('oauth_state', JSON.stringify({ state, mallId }), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 10 * 60 * 1000 // 10분
+  });
+
+  console.log(`Redirecting to OAuth for mall: ${mallId}`);
+  res.redirect(authorizeUrl.toString());
+});
+
 // OAuth 콜백 처리
 router.get('/callback', async (req: Request, res: Response) => {
-  const { code, state, error } = req.query as {
-    code?: string;
-    state?: string;
-    error?: string;
-  };
-
-  // 에러 처리
-  if (error) {
-    console.error('OAuth error:', error);
-    await saveLoginLog({
-      ip: req.ip || req.connection.remoteAddress || 'unknown',
-      user_agent: req.get('User-Agent'),
-      success: false,
-      error_message: `OAuth error: ${error}`
-    });
-    return res.status(400).send(`
-      <html>
-        <body>
-          <h1>OAuth 인증 실패</h1>
-          <p>에러: ${error}</p>
-          <p>다시 시도해주세요.</p>
-        </body>
-      </html>
-    `);
-  }
-
-  // 코드 검증
-  if (!code) {
-    await saveLoginLog({
-      ip: req.ip || req.connection.remoteAddress || 'unknown',
-      user_agent: req.get('User-Agent'),
-      success: false,
-      error_message: 'Missing authorization code'
-    });
-    return res.status(400).send(`
-      <html>
-        <body>
-          <h1>인증 코드 누락</h1>
-          <p>카페24에서 인증 코드를 받지 못했습니다.</p>
-          <p>다시 시도해주세요.</p>
-        </body>
-      </html>
-    `);
-  }
-
   try {
-    console.log('Exchanging authorization code for tokens...');
+    const { code, state, mall_id: cbMallId } = req.query as {
+      code: string;
+      state: string;
+      mall_id?: string;
+    };
 
-    // 인증 코드를 액세스 토큰으로 교환
-    const tokens = await cafe24Client.exchangeCode(code);
+    // state 검증
+    const savedStateCookie = req.cookies.oauth_state;
+    if (!savedStateCookie) {
+      return res.status(400).send(`
+        <html>
+          <body>
+            <h1>Invalid Request</h1>
+            <p>OAuth state not found. Please try again.</p>
+          </body>
+        </html>
+      `);
+    }
 
-    // 토큰을 데이터베이스에 저장
-    await saveTokens(tokens);
+    const savedState = JSON.parse(savedStateCookie);
+    if (savedState.state !== state) {
+      return res.status(400).send(`
+        <html>
+          <body>
+            <h1>Invalid State</h1>
+            <p>OAuth state mismatch. Please try again.</p>
+          </body>
+        </html>
+      `);
+    }
+
+    const mallId = cbMallId || savedState.mallId;
+    const clientId = process.env.CAFE24_CLIENT_ID;
+    const clientSecret = process.env.CAFE24_CLIENT_SECRET;
+    const backendUrl = process.env.BACKEND_URL;
+
+    if (!clientId || !clientSecret || !backendUrl) {
+      throw new Error('OAuth configuration missing');
+    }
+
+    // 토큰 교환
+    const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: `${backendUrl}/oauth/callback`,
+      client_id: clientId,
+      client_secret: clientSecret,
+    });
+
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      throw new Error(`Token exchange failed: ${tokenResponse.status} ${errorText}`);
+    }
+
+    const tokens = await tokenResponse.json() as Cafe24TokenResponse;
+
+    // 토큰을 DB에 저장
+    await saveTokensForMall(mallId, tokens);
 
     // 로그인 로그 저장
     await saveLoginLog({
@@ -67,34 +141,17 @@ router.get('/callback', async (req: Request, res: Response) => {
       success: true
     });
 
-    console.log('OAuth tokens saved successfully');
+    // state 쿠키 삭제
+    res.clearCookie('oauth_state');
 
-    // 성공 페이지
-    res.send(`
-      <html>
-        <head>
-          <title>카페24 연동 완료</title>
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            .success { color: #28a745; }
-            .info { color: #6c757d; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <h1 class="success">✅ 카페24 연동이 완료되었습니다!</h1>
-          <p>이제 로지뷰 시스템을 사용할 수 있습니다.</p>
-          <div class="info">
-            <p><strong>접근 토큰:</strong> ${tokens.access_token.substring(0, 20)}...</p>
-            <p><strong>만료 시간:</strong> ${tokens.expires_in}초</p>
-            <p><strong>권한 범위:</strong> ${tokens.scope}</p>
-          </div>
-          <p>이 창은 닫아도 됩니다.</p>
-        </body>
-      </html>
-    `);
+    console.log(`OAuth tokens saved successfully for mall: ${mallId}`);
+
+    // 성공 후 프론트엔드로 리다이렉트
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    return res.redirect(`${frontendUrl}/settings?installed=1&mall_id=${mallId}`);
 
   } catch (error: any) {
-    console.error('Token exchange failed:', error);
+    console.error('OAuth callback error:', error);
 
     await saveLoginLog({
       ip: req.ip || req.connection.remoteAddress || 'unknown',
@@ -106,55 +163,86 @@ router.get('/callback', async (req: Request, res: Response) => {
     res.status(500).send(`
       <html>
         <body>
-          <h1>토큰 발급 실패</h1>
-          <p>에러: ${error.message}</p>
-          <p>관리자에게 문의하거나 다시 시도해주세요.</p>
+          <h1>OAuth Failed</h1>
+          <p>Error: ${error.message}</p>
+          <p>Please try again or contact support.</p>
         </body>
       </html>
     `);
   }
 });
 
-// OAuth 설치 URL 생성
-router.get('/install', (req: Request, res: Response) => {
-  const mallId = process.env.MALL_ID;
-  const clientId = process.env.CAFE24_CLIENT_ID;
-  const redirectUri = process.env.OAUTH_REDIRECT_URI;
-
-  if (!mallId || !clientId || !redirectUri) {
-    return res.status(500).json({
-      error: 'OAuth configuration missing. Please check environment variables.'
-    });
-  }
-
-  const installUrl = new URL(`https://${mallId}.cafe24api.com/api/v2/oauth/authorize`);
-  installUrl.searchParams.set('response_type', 'code');
-  installUrl.searchParams.set('client_id', clientId);
-  installUrl.searchParams.set('redirect_uri', redirectUri);
-  installUrl.searchParams.set('scope', 'mall.read_order mall.write_order');
-  installUrl.searchParams.set('state', 'auto_shipping_' + Date.now());
-
-  res.json({
-    install_url: installUrl.toString(),
-    message: '카페24 앱 설치를 위해 아래 URL을 클릭하세요.'
-  });
-});
-
-// 토큰 상태 확인
+// 토큰 상태 확인 (특정 몰)
 router.get('/status', async (req: Request, res: Response) => {
   try {
-    const { getValidAccessToken } = await import('../lib/database');
-    const accessToken = await getValidAccessToken();
+    const mallId = req.query.mall_id as string;
+
+    if (!mallId) {
+      return res.json({
+        success: false,
+        error: 'mall_id parameter is required'
+      });
+    }
+
+    const tokens = await getTokensForMall(mallId);
+
+    if (!tokens || !tokens.access_token) {
+      return res.json({
+        success: true,
+        data: {
+          status: 'disconnected',
+          has_token: false,
+          mall_id: mallId
+        }
+      });
+    }
+
+    // 토큰 만료 확인
+    const isExpired = tokens.expires_at && new Date() >= new Date(tokens.expires_at);
 
     res.json({
-      status: 'connected',
-      has_token: true,
-      token_preview: accessToken.substring(0, 20) + '...'
+      success: true,
+      data: {
+        status: isExpired ? 'expired' : 'connected',
+        has_token: true,
+        mall_id: mallId,
+        token_preview: tokens.access_token.substring(0, 20) + '...',
+        expires_at: tokens.expires_at
+      }
     });
   } catch (error: any) {
     res.json({
-      status: 'disconnected',
-      has_token: false,
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// 토큰 갱신 엔드포인트
+router.post('/refresh', async (req: Request, res: Response) => {
+  try {
+    const { mall_id } = req.body;
+
+    if (!mall_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'mall_id is required'
+      });
+    }
+
+    const newTokens = await refreshCafe24Token(mall_id);
+
+    res.json({
+      success: true,
+      data: {
+        mall_id,
+        token_preview: newTokens.access_token.substring(0, 20) + '...',
+        expires_at: new Date(Date.now() + newTokens.expires_in * 1000).toISOString()
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
       error: error.message
     });
   }

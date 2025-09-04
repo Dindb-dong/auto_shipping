@@ -53,13 +53,13 @@ export interface ApiResponse<T = any> {
 
 // OAuth 관련 API
 export const oauthApi = {
-  // OAuth 설치 URL 가져오기
-  getInstallUrl: (): Promise<ApiResponse<{ install_url: string; message: string }>> =>
-    api.get('/oauth/install').then(res => res.data),
+  // OAuth 상태 확인 (특정 몰)
+  getStatus: (mallId: string): Promise<ApiResponse<{ status: string; has_token: boolean; token_preview?: string; error?: string; mall_id?: string }>> =>
+    api.get(`/oauth/status?mall_id=${encodeURIComponent(mallId)}`).then(res => res.data),
 
-  // OAuth 상태 확인
-  getStatus: (): Promise<ApiResponse<{ status: string; has_token: boolean; token_preview?: string; error?: string }>> =>
-    api.get('/oauth/status').then(res => res.data),
+  // 토큰 갱신
+  refreshToken: (mallId: string): Promise<ApiResponse<{ mall_id: string; token_preview: string; expires_at: string }>> =>
+    api.post('/oauth/refresh', { mall_id: mallId }).then(res => res.data),
 }
 
 // 주문 관련 API

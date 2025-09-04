@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { cafe24Client } from '../lib/cafe24';
-import { getValidAccessToken, saveShipmentLog } from '../lib/database';
+import { getValidAccessToken, getValidAccessTokenForMall, saveShipmentLog } from '../lib/database';
 
 const router = Router();
 
@@ -39,13 +39,20 @@ router.post('/logiview', authenticateWebhook, async (req: Request, res: Response
     // 데이터 검증
     const webhookData = LogiviewWebhookSchema.parse(req.body);
 
+    // TODO: mall_id를 어떻게 가져올지 결정해야 함 (웹훅 데이터에서? 별도 파라미터?)
+    // 임시로 환경변수에서 가져옴
+    const mallId = process.env.MALL_ID;
+    if (!mallId) {
+      throw new Error('MALL_ID environment variable is required for webhook processing');
+    }
+
     // 유효한 액세스 토큰 가져오기 (자동 갱신 포함)
-    const accessToken = await getValidAccessToken();
+    const accessToken = await getValidAccessTokenForMall(mallId);
 
     // 카페24에 배송 정보 전송
     let cafe24Response;
     try {
-      cafe24Response = await cafe24Client.createShipment(accessToken, {
+      cafe24Response = await cafe24Client.createShipment(mallId, accessToken, {
         order_id: webhookData.order_id,
         tracking_no: webhookData.tracking_no,
         shipping_company_code: webhookData.shipping_company_code,
@@ -61,7 +68,7 @@ router.post('/logiview', authenticateWebhook, async (req: Request, res: Response
       // 409 Conflict (이미 배송 정보가 있는 경우) - 업데이트 시도
       if (cafe24Error.message.includes('409') || cafe24Error.message.includes('already exists')) {
         console.log('Shipment already exists, attempting to update...');
-        cafe24Response = await cafe24Client.updateShipment(accessToken, webhookData.order_id, {
+        cafe24Response = await cafe24Client.updateShipment(mallId, accessToken, webhookData.order_id, {
           tracking_no: webhookData.tracking_no,
           shipping_company_code: webhookData.shipping_company_code,
           status: webhookData.status
@@ -147,13 +154,20 @@ router.post('/test', async (req: Request, res: Response) => {
     // 데이터 검증
     const webhookData = LogiviewWebhookSchema.parse(testData);
 
+    // TODO: mall_id를 어떻게 가져올지 결정해야 함 (웹훅 데이터에서? 별도 파라미터?)
+    // 임시로 환경변수에서 가져옴
+    const mallId = process.env.MALL_ID;
+    if (!mallId) {
+      throw new Error('MALL_ID environment variable is required for webhook processing');
+    }
+
     // 유효한 액세스 토큰 가져오기 (자동 갱신 포함)
-    const accessToken = await getValidAccessToken();
+    const accessToken = await getValidAccessTokenForMall(mallId);
 
     // 카페24에 배송 정보 전송
     let cafe24Response;
     try {
-      cafe24Response = await cafe24Client.createShipment(accessToken, {
+      cafe24Response = await cafe24Client.createShipment(mallId, accessToken, {
         order_id: webhookData.order_id,
         tracking_no: webhookData.tracking_no,
         shipping_company_code: webhookData.shipping_company_code,
@@ -169,7 +183,7 @@ router.post('/test', async (req: Request, res: Response) => {
       // 409 Conflict (이미 배송 정보가 있는 경우) - 업데이트 시도
       if (cafe24Error.message.includes('409') || cafe24Error.message.includes('already exists')) {
         console.log('Test shipment already exists, attempting to update...');
-        cafe24Response = await cafe24Client.updateShipment(accessToken, webhookData.order_id, {
+        cafe24Response = await cafe24Client.updateShipment(mallId, accessToken, webhookData.order_id, {
           tracking_no: webhookData.tracking_no,
           shipping_company_code: webhookData.shipping_company_code,
           status: webhookData.status

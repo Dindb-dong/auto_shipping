@@ -9,8 +9,8 @@ const pool = new Pool({
 
 export { pool };
 
-// OAuth 토큰 저장
-export async function saveTokens(tokens: Cafe24TokenResponse): Promise<void> {
+// OAuth 토큰 저장 (특정 몰)
+export async function saveTokensForMall(mallId: string, tokens: Cafe24TokenResponse): Promise<void> {
   const client = await pool.connect();
   try {
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
@@ -24,14 +24,27 @@ export async function saveTokens(tokens: Cafe24TokenResponse): Promise<void> {
         refresh_token = EXCLUDED.refresh_token,
         expires_at = EXCLUDED.expires_at,
         updated_at = NOW()
-    `, ['cafe24', process.env.MALL_ID, tokens.access_token, tokens.refresh_token, expiresAt]);
+    `, ['cafe24', mallId, tokens.access_token, tokens.refresh_token, expiresAt]);
   } finally {
     client.release();
   }
 }
 
-// 유효한 액세스 토큰 가져오기 (필요시 자동 갱신)
-export async function getValidAccessToken(): Promise<string> {
+// OAuth 토큰 저장 (기존 함수 - 호환성을 위해 유지)
+export async function saveTokens(tokens: Cafe24TokenResponse): Promise<void> {
+  const mallId = process.env.MALL_ID;
+  if (!mallId) {
+    throw new Error('MALL_ID environment variable is required');
+  }
+  return saveTokensForMall(mallId, tokens);
+}
+
+// 특정 몰의 토큰 정보 가져오기
+export async function getTokensForMall(mallId: string): Promise<{
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+} | null> {
   const client = await pool.connect();
   try {
     const result = await client.query(`
@@ -40,27 +53,57 @@ export async function getValidAccessToken(): Promise<string> {
       WHERE provider = $1 AND mall_id = $2
       ORDER BY updated_at DESC 
       LIMIT 1
-    `, ['cafe24', process.env.MALL_ID]);
+    `, ['cafe24', mallId]);
 
     if (result.rows.length === 0) {
-      throw new Error('No OAuth tokens found. Please complete OAuth flow first.');
+      return null;
     }
 
-    const { access_token, refresh_token, expires_at } = result.rows[0];
-
-    // 토큰이 만료되었거나 5분 이내에 만료될 예정이면 갱신
-    if (new Date().getTime() >= new Date(expires_at).getTime() - 5 * 60 * 1000) {
-      console.log('Token expired or expiring soon, refreshing...');
-      const { cafe24Client } = await import('./cafe24');
-      const newTokens = await cafe24Client.refreshToken(refresh_token);
-      await saveTokens(newTokens);
-      return newTokens.access_token;
-    }
-
-    return access_token;
+    return result.rows[0];
   } finally {
     client.release();
   }
+}
+
+// 유효한 액세스 토큰 가져오기 (특정 몰)
+export async function getValidAccessTokenForMall(mallId: string): Promise<string> {
+  const tokens = await getTokensForMall(mallId);
+
+  if (!tokens) {
+    throw new Error(`No OAuth tokens found for mall: ${mallId}. Please complete OAuth flow first.`);
+  }
+
+  // 토큰이 만료되었거나 5분 이내에 만료될 예정이면 갱신
+  if (new Date().getTime() >= new Date(tokens.expires_at).getTime() - 5 * 60 * 1000) {
+    console.log(`Token expired or expiring soon for mall: ${mallId}, refreshing...`);
+    const newTokens = await refreshCafe24Token(mallId);
+    return newTokens.access_token;
+  }
+
+  return tokens.access_token;
+}
+
+// 유효한 액세스 토큰 가져오기 (기존 함수 - 호환성을 위해 유지)
+export async function getValidAccessToken(): Promise<string> {
+  const mallId = process.env.MALL_ID;
+  if (!mallId) {
+    throw new Error('MALL_ID environment variable is required');
+  }
+  return getValidAccessTokenForMall(mallId);
+}
+
+// 카페24 토큰 갱신
+export async function refreshCafe24Token(mallId: string): Promise<Cafe24TokenResponse> {
+  const tokens = await getTokensForMall(mallId);
+  if (!tokens || !tokens.refresh_token) {
+    throw new Error(`No refresh token found for mall: ${mallId}`);
+  }
+
+  const { cafe24Client } = await import('./cafe24');
+  const newTokens = await cafe24Client.refreshToken(mallId, tokens.refresh_token);
+  await saveTokensForMall(mallId, newTokens);
+
+  return newTokens;
 }
 
 // 배송 로그 저장
