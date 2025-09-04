@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios'
 
 // API 기본 URL 설정
-const API_BASE_URL = import.meta.env.API_BASE_URL || 'http://localhost:3000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
 // Axios 인스턴스 생성
 const api: AxiosInstance = axios.create({
@@ -155,6 +155,17 @@ export const webhookApi = {
   // 웹훅 상태 확인
   getStatus: (): Promise<ApiResponse<{ status: string; timestamp: string; endpoints: any }>> =>
     api.get('/webhook/status').then(res => res.data),
+}
+
+// 관리자 인증 API
+export const authApi = {
+  // 관리자 로그인
+  adminLogin: (credentials: { username: string; password: string }): Promise<ApiResponse<{ authenticated: boolean; timestamp: string }>> =>
+    api.post('/api/auth/admin/login', credentials).then(res => res.data),
+
+  // 관리자 로그아웃
+  adminLogout: (): Promise<ApiResponse> =>
+    api.post('/api/auth/admin/logout').then(res => res.data),
 }
 
 // 헬스 체크

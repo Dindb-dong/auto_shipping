@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import oauth from './routes/oauth';
 import webhook from './routes/webhook';
 import orders from './routes/orders';
+import auth from './routes/auth';
 
 // 환경변수 로드
 dotenv.config();
@@ -35,6 +36,7 @@ app.get('/health', (_, res) => {
 app.use('/oauth', oauth);         // /oauth/callback
 app.use('/webhook', webhook);     // /webhook/logiview
 app.use('/api/orders', orders);   // /api/orders/*
+app.use('/api/auth', auth);       // /api/auth/admin/login
 
 // 404 핸들러
 app.use('*', (req, res) => {
@@ -50,9 +52,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 const port = process.env.PORT || 3000;
+const url = process.env.BACKEND_URL || `http://localhost:${port}`;
 app.listen(port, () => {
   console.log(`🚀 API Server running on port ${port}`);
-  console.log(`📊 Health check: http://localhost:${port}/health`);
-  console.log(`🔐 OAuth callback: http://localhost:${port}/oauth/callback`);
-  console.log(`📦 Webhook endpoint: http://localhost:${port}/webhook/logiview`);
+  console.log(`📊 Health check: ${url}/health`);
+  console.log(`🔐 OAuth callback: ${url}/oauth/callback`);
+  console.log(`📦 Webhook endpoint: ${url}/webhook/logiview`);
 });

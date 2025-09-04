@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from 'react-query'
 import { Link, Key, Database, TestTube, ExternalLink } from 'lucide-react'
-import { oauthApi, webhookApi } from '../utils/api'
+import { oauthApi, webhookApi, authApi } from '../utils/api'
 import { STORAGE_KEYS } from '../utils/constants'
 
 const Settings = () => {
@@ -10,34 +10,50 @@ const Settings = () => {
   const [adminPw, setAdminPw] = useState('')
   const [isAuthed, setIsAuthed] = useState(false)
 
-  const adminUser = useMemo(() => import.meta.env.ADMIN_USER as string | undefined, [])
-  const adminPass = useMemo(() => import.meta.env.ADMIN_PASS as string | undefined, [])
-
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ADMIN_SESSION)
     setIsAuthed(saved === 'true')
   }, [])
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!adminUser || !adminPass) {
-      alert('관리자 계정 환경변수가 설정되지 않았습니다.')
+
+    if (!adminId.trim() || !adminPw.trim()) {
+      alert('아이디와 비밀번호를 입력해주세요.')
       return
     }
-    if (adminId === adminUser && adminPw === adminPass) {
-      localStorage.setItem(STORAGE_KEYS.ADMIN_SESSION, 'true')
-      setIsAuthed(true)
-      setAdminPw('')
-    } else {
-      alert('아이디 또는 비밀번호가 올바르지 않습니다.')
+
+    try {
+      const response = await authApi.adminLogin({
+        username: adminId,
+        password: adminPw
+      })
+
+      if (response.success) {
+        localStorage.setItem(STORAGE_KEYS.ADMIN_SESSION, 'true')
+        setIsAuthed(true)
+        setAdminPw('')
+        setAdminId('')
+      } else {
+        alert(response.error || '로그인에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('Admin login error:', error)
+      alert('로그인 중 오류가 발생했습니다.')
     }
   }
 
-  const handleAdminLogout = () => {
-    localStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION)
-    setIsAuthed(false)
-    setAdminId('')
-    setAdminPw('')
+  const handleAdminLogout = async () => {
+    try {
+      await authApi.adminLogout()
+    } catch (error) {
+      console.error('Admin logout error:', error)
+    } finally {
+      localStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION)
+      setIsAuthed(false)
+      setAdminId('')
+      setAdminPw('')
+    }
   }
 
   // OAuth 상태 조회
