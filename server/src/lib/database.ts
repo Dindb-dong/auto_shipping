@@ -11,16 +11,32 @@ const getDatabaseConfig = () => {
   console.log('DATABASE_USER:', process.env.DATABASE_USER || 'Not set');
   console.log('DATABASE_PASSWORD:', process.env.DATABASE_PASSWORD ? 'Set' : 'Not set');
 
-  // 개별 환경변수가 모두 설정되어 있으면 우선 사용
+  // 개별 환경변수가 모두 설정되어 있으면 우선 사용 (DATABASE_URL 무시)
   if (process.env.DATABASE_HOST && process.env.DATABASE_NAME && process.env.DATABASE_USER && process.env.DATABASE_PASSWORD) {
-    console.log('✅ Using individual database environment variables');
+    console.log('✅ Using individual database environment variables (ignoring DATABASE_URL)');
+    console.log('🔍 Connection details:');
+    console.log('  Host:', process.env.DATABASE_HOST);
+    console.log('  Port:', process.env.DATABASE_PORT || '5432');
+    console.log('  Database:', process.env.DATABASE_NAME);
+    console.log('  User:', process.env.DATABASE_USER);
+
+    // Supabase 연결 설정
+    const isSupabase = process.env.DATABASE_HOST && process.env.DATABASE_HOST.includes('supabase.co');
+    const sslConfig = isSupabase
+      ? { rejectUnauthorized: false } // Supabase는 SSL 필수
+      : (process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false);
+
+    if (isSupabase) {
+      console.log('🔒 Using Supabase SSL configuration');
+    }
+
     return {
       host: process.env.DATABASE_HOST,
       port: parseInt(process.env.DATABASE_PORT || '5432'),
       database: process.env.DATABASE_NAME,
       user: process.env.DATABASE_USER,
       password: process.env.DATABASE_PASSWORD,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: sslConfig,
       connectionTimeoutMillis: 10000,
       idleTimeoutMillis: 30000,
       max: 10,
@@ -40,13 +56,23 @@ const getDatabaseConfig = () => {
         // Railway PostgreSQL의 IPv4 호스트명 패턴 시도
         let ipv4Host = url.hostname;
 
-        // Railway IPv6 주소를 IPv4로 매핑
+        // IPv6 주소를 IPv4로 매핑
         if (url.hostname.includes('2406:da12:b78:de00:bf62:bc3a:a608:f3ab')) {
-          // 이 특정 IPv6 주소를 Railway의 내부 IPv4 호스트명으로 매핑
-          ipv4Host = 'postgres.railway.internal';
+          // 이 특정 IPv6 주소는 Supabase 또는 Railway의 IPv6 주소
+          // Supabase 호스트명이 설정되어 있으면 사용, 없으면 Railway 내부 호스트명 사용
+          if (process.env.DATABASE_HOST && process.env.DATABASE_HOST.includes('supabase.co')) {
+            ipv4Host = process.env.DATABASE_HOST;
+            console.log('🔄 Using Supabase IPv4 host from DATABASE_HOST:', ipv4Host);
+          } else {
+            ipv4Host = 'postgres.railway.internal';
+            console.log('🔄 Using Railway internal host:', ipv4Host);
+          }
         } else if (url.hostname.includes('.railway.app')) {
           // 일반적인 Railway 도메인을 내부 호스트명으로 변환
           ipv4Host = url.hostname.replace(/^.*\.railway\.app$/, 'postgres.railway.internal');
+        } else if (url.hostname.includes('.supabase.co')) {
+          // Supabase 도메인인 경우 그대로 사용 (이미 IPv4)
+          ipv4Host = url.hostname;
         } else {
           // 다른 IPv6 주소의 경우 localhost로 시도
           ipv4Host = 'localhost';

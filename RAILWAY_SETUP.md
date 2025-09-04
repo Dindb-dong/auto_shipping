@@ -2,7 +2,7 @@
 
 ## IPv6 데이터베이스 연결 문제 해결
 
-Railway에서 PostgreSQL 데이터베이스가 IPv6 주소를 사용할 때 발생하는 `ENETUNREACH` 에러를 해결하기 위한 설정입니다.
+Railway에서 PostgreSQL 데이터베이스(Supabase 포함)가 IPv6 주소를 사용할 때 발생하는 `ENETUNREACH` 에러를 해결하기 위한 설정입니다.
 
 ## 1. Railway 대시보드에서 환경변수 설정
 
@@ -19,11 +19,19 @@ CAFE24_CLIENT_SECRET=your_client_secret
 OAUTH_REDIRECT_URI=https://your-app.railway.app/oauth/callback
 
 # 데이터베이스 설정 (IPv6 문제 해결용)
-DATABASE_HOST=postgres.railway.internal
+# Supabase 사용 시:
+DATABASE_HOST=db.wsxsvvacpbpulbvbpxfc.supabase.co
 DATABASE_PORT=5432
-DATABASE_NAME=railway
+DATABASE_NAME=alushc-autoship
 DATABASE_USER=postgres
-DATABASE_PASSWORD=your_postgres_password
+DATABASE_PASSWORD=your_supabase_password
+
+# Railway PostgreSQL 사용 시:
+# DATABASE_HOST=postgres.railway.internal
+# DATABASE_PORT=5432
+# DATABASE_NAME=railway
+# DATABASE_USER=postgres
+# DATABASE_PASSWORD=your_postgres_password
 
 # 기존 DATABASE_URL은 그대로 두세요 (자동 감지용)
 
@@ -41,11 +49,21 @@ ADMIN_USER=admin
 ADMIN_PASS=your_secure_password
 ```
 
-## 2. PostgreSQL 데이터베이스 정보 확인
+## 2. 데이터베이스 정보 확인
 
-Railway 대시보드에서 PostgreSQL 서비스의 연결 정보를 확인하세요:
+### Supabase 사용 시:
 
-1. **PostgreSQL 서비스 클릭**
+1. **Supabase 대시보드** → **Settings** → **Database**
+2. **Connection string** 섹션에서 다음 정보 확인:
+   - Host: `db.wsxsvvacpbpulbvbpxfc.supabase.co`
+   - Port: `5432`
+   - Database: `alushc-autoship`
+   - User: `postgres`
+   - Password: 프로젝트 설정에서 확인
+
+### Railway PostgreSQL 사용 시:
+
+1. **Railway 대시보드** → **PostgreSQL 서비스 클릭**
 2. **Variables 탭에서 다음 정보 확인**:
 
    - `PGHOST` (호스트명)
