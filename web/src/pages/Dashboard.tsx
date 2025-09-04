@@ -5,12 +5,19 @@ import {
   CheckCircle,
   AlertCircle,
   XCircle,
-  Settings
+  Settings,
+  Server,
+  Database,
+  Link
 } from 'lucide-react'
-import { ordersApi } from '../utils/api'
+import { ordersApi, healthApi, oauthApi } from '../utils/api'
 import { formatNumber, formatDate } from '../utils/helpers'
+import { useMallManager } from '../utils/mallManager'
 
 const Dashboard = () => {
+  const mallManager = useMallManager()
+  const currentMall = mallManager.getCurrentMall()
+
   // 주문 통계 조회
   const { data: statsData, isLoading: statsLoading } = useQuery(
     'orderStats',
@@ -26,6 +33,26 @@ const Dashboard = () => {
     () => ordersApi.getOrders({ limit: 10, sort: 'date_desc' }),
     {
       refetchInterval: 30000,
+    }
+  )
+
+  // 시스템 상태 조회
+  const { data: healthData, isLoading: healthLoading } = useQuery(
+    'systemHealth',
+    () => healthApi.getDetailedStatus(),
+    {
+      refetchInterval: 15000, // 15초마다 체크
+      retry: 1, // 실패 시 1번만 재시도
+    }
+  )
+
+  // OAuth 상태 조회 (현재 쇼핑몰이 있을 때만)
+  const { data: oauthData } = useQuery(
+    ['oauthStatus', currentMall?.mallId],
+    () => oauthApi.getStatus(currentMall!.mallId),
+    {
+      refetchInterval: 30000,
+      enabled: !!currentMall?.mallId,
     }
   )
 
@@ -183,31 +210,90 @@ const Dashboard = () => {
         <div className="card">
           <div className="card-header">
             <h3 className="text-lg font-medium text-gray-900">시스템 상태</h3>
+            {healthData?.errors && healthData.errors.length > 0 && (
+              <div className="mt-2 text-sm text-red-600">
+                {healthData.errors.join(', ')}
+              </div>
+            )}
           </div>
           <div className="card-body">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="h-2 w-2 rounded-full bg-green-400 mr-3" />
-                  <span className="text-sm text-gray-900">API 서버</span>
-                </div>
-                <span className="text-sm text-green-600">정상</span>
+            {healthLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                <span className="ml-2 text-sm text-gray-500">상태 확인 중...</span>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="h-2 w-2 rounded-full bg-green-400 mr-3" />
-                  <span className="text-sm text-gray-900">데이터베이스</span>
+            ) : (
+              <div className="space-y-4">
+                {/* API 서버 상태 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Server className="h-4 w-4 mr-2 text-gray-400" />
+                    <span className="text-sm text-gray-900">API 서버</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className={`h-2 w-2 rounded-full mr-2 ${healthData?.services?.api === 'ok' ? 'bg-green-400' : 'bg-red-400'
+                      }`} />
+                    <span className={`text-sm ${healthData?.services?.api === 'ok' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                      {healthData?.services?.api === 'ok' ? '정상' : '오류'}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-sm text-green-600">정상</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="h-2 w-2 rounded-full bg-green-400 mr-3" />
-                  <span className="text-sm text-gray-900">카페24 연동</span>
+
+                {/* 데이터베이스 상태 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Database className="h-4 w-4 mr-2 text-gray-400" />
+                    <span className="text-sm text-gray-900">데이터베이스</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className={`h-2 w-2 rounded-full mr-2 ${healthData?.services?.database === 'ok' ? 'bg-green-400' : 'bg-red-400'
+                      }`} />
+                    <span className={`text-sm ${healthData?.services?.database === 'ok' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                      {healthData?.services?.database === 'ok' ? '정상' : '오류'}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-sm text-green-600">연결됨</span>
+
+                {/* 카페24 연동 상태 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Link className="h-4 w-4 mr-2 text-gray-400" />
+                    <span className="text-sm text-gray-900">카페24 연동</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className={`h-2 w-2 rounded-full mr-2 ${oauthData?.data?.has_token ? 'bg-green-400' :
+                      oauthData?.data?.has_token === false ? 'bg-yellow-400' : 'bg-red-400'
+                      }`} />
+                    <span className={`text-sm ${oauthData?.data?.has_token ? 'text-green-600' :
+                      oauthData?.data?.has_token === false ? 'text-yellow-600' : 'text-red-600'
+                      }`}>
+                      {oauthData?.data?.has_token ? '연결됨' :
+                        oauthData?.data?.has_token === false ? '연결 안됨' : '확인 불가'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 전체 시스템 상태 */}
+                <div className="pt-2 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-900">전체 상태</span>
+                    <div className="flex items-center">
+                      <div className={`h-2 w-2 rounded-full mr-2 ${healthData?.status === 'ok' ? 'bg-green-400' :
+                        healthData?.status === 'warning' ? 'bg-yellow-400' : 'bg-red-400'
+                        }`} />
+                      <span className={`text-sm font-medium ${healthData?.status === 'ok' ? 'text-green-600' :
+                        healthData?.status === 'warning' ? 'text-yellow-600' : 'text-red-600'
+                        }`}>
+                        {healthData?.status === 'ok' ? '정상' :
+                          healthData?.status === 'warning' ? '주의' : '비정상'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

@@ -169,9 +169,53 @@ export const authApi = {
 }
 
 // 헬스 체크
+export interface HealthStatus {
+  status: 'ok' | 'error' | 'warning'
+  timestamp: string
+  version: string
+  database?: 'connected' | 'disconnected' | 'error'
+  services?: {
+    api: 'ok' | 'error'
+    database: 'ok' | 'error'
+    oauth: 'ok' | 'error' | 'not_configured'
+  }
+  errors?: string[]
+}
+
 export const healthApi = {
-  check: (): Promise<{ status: string; timestamp: string; version: string }> =>
-    api.get('/health').then(res => res.data),
+  check: (): Promise<HealthStatus> =>
+    api.get('/health').then(res => res.data).catch(error => {
+      // API 호출 실패 시 에러 상태 반환
+      return {
+        status: 'error' as const,
+        timestamp: new Date().toISOString(),
+        version: 'unknown',
+        database: 'error' as const,
+        services: {
+          api: 'error' as const,
+          database: 'error' as const,
+          oauth: 'error' as const,
+        },
+        errors: [error.message || 'API 서버 연결 실패']
+      }
+    }),
+
+  // 상세 시스템 상태 체크
+  getDetailedStatus: (): Promise<HealthStatus> =>
+    api.get('/health/detailed').then(res => res.data).catch(error => {
+      return {
+        status: 'error' as const,
+        timestamp: new Date().toISOString(),
+        version: 'unknown',
+        database: 'error' as const,
+        services: {
+          api: 'error' as const,
+          database: 'error' as const,
+          oauth: 'error' as const,
+        },
+        errors: [error.message || '상세 상태 확인 실패']
+      }
+    }),
 }
 
 export default api

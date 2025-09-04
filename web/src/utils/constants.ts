@@ -80,6 +80,8 @@ export const STORAGE_KEYS = {
   USER_PREFERENCES: 'user_preferences',
   THEME: 'theme',
   ADMIN_SESSION: 'admin_session',
+  SAVED_MALLS: 'saved_malls',
+  CURRENT_MALL: 'current_mall',
 } as const
 
 // 테마 색상

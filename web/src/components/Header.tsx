@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, Search, Menu, X } from 'lucide-react'
+import { Bell, Search, Menu, X, AlertTriangle, CheckCircle } from 'lucide-react'
 import { useQuery } from 'react-query'
 import { healthApi } from '../utils/api'
 
@@ -9,9 +9,14 @@ const Header = () => {
   // const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   // 헬스 체크
-  const { data: healthData } = useQuery('health', healthApi.check, {
-    refetchInterval: 30000, // 30초마다 체크
+  const { data: healthData, error: healthError } = useQuery('health', healthApi.check, {
+    refetchInterval: 15000, // 15초마다 체크
+    retry: 1,
   })
+
+  // 시스템 상태 계산
+  const systemStatus = healthData?.status || (healthError ? 'error' : 'unknown')
+  const hasErrors = healthData?.errors && healthData.errors.length > 0
 
   return (
     <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
@@ -48,10 +53,27 @@ const Header = () => {
           {/* 알림 */}
           <button
             type="button"
-            className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500"
+            className={`relative -m-2.5 p-2.5 ${systemStatus === 'error' || hasErrors
+              ? 'text-red-500 hover:text-red-600'
+              : systemStatus === 'warning'
+                ? 'text-yellow-500 hover:text-yellow-600'
+                : 'text-gray-400 hover:text-gray-500'
+              }`}
+            title={systemStatus === 'error' || hasErrors ? '시스템 오류 발생' :
+              systemStatus === 'warning' ? '시스템 주의' : '시스템 정상'}
           >
             <span className="sr-only">알림 보기</span>
-            <Bell className="h-6 w-6" />
+            {systemStatus === 'error' || hasErrors ? (
+              <AlertTriangle className="h-6 w-6" />
+            ) : systemStatus === 'warning' ? (
+              <Bell className="h-6 w-6" />
+            ) : (
+              <CheckCircle className="h-6 w-6" />
+            )}
+            {/* 오류가 있을 때 빨간 점 표시 */}
+            {(systemStatus === 'error' || hasErrors) && (
+              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-pulse" />
+            )}
           </button>
 
           {/* 구분선 */}
@@ -59,11 +81,20 @@ const Header = () => {
 
           {/* 시스템 상태 */}
           <div className="flex items-center gap-x-2">
-            <div className={`h-2 w-2 rounded-full ${healthData?.status === 'ok' ? 'bg-green-400' : 'bg-red-400'
+            <div className={`h-2 w-2 rounded-full ${systemStatus === 'ok' ? 'bg-green-400' :
+              systemStatus === 'warning' ? 'bg-yellow-400' : 'bg-red-400'
               }`} />
-            <span className="text-sm text-gray-500">
-              {healthData?.status === 'ok' ? '시스템 정상' : '시스템 오류'}
+            <span className={`text-sm ${systemStatus === 'ok' ? 'text-gray-500' :
+              systemStatus === 'warning' ? 'text-yellow-600' : 'text-red-600'
+              }`}>
+              {systemStatus === 'ok' ? '시스템 정상' :
+                systemStatus === 'warning' ? '시스템 주의' : '시스템 오류'}
             </span>
+            {hasErrors && (
+              <span className="text-xs text-red-500">
+                ({healthData?.errors?.length}개 오류)
+              </span>
+            )}
           </div>
         </div>
       </div>

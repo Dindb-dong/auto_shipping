@@ -54,14 +54,61 @@ app.use(express.urlencoded({ extended: true }));
 // 쿠키 파싱
 app.use(cookieParser());
 
-// 헬스 체크
+// 기본 헬스 체크
 app.get('/health', async (_, res) => {
   const dbStatus = await testDatabaseConnection();
   res.json({
-    status: dbStatus ? 'ok' : 'degraded',
+    status: dbStatus ? 'ok' : 'error',
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version ?? '1.0.0',
     database: dbStatus ? 'connected' : 'disconnected',
+  });
+});
+
+// 상세 헬스 체크
+app.get('/health/detailed', async (_, res) => {
+  const errors: string[] = [];
+  const services: any = {};
+
+  try {
+    // 데이터베이스 연결 테스트
+    const dbStatus = await testDatabaseConnection();
+    services.database = dbStatus ? 'ok' : 'error';
+    if (!dbStatus) {
+      errors.push('데이터베이스 연결 실패');
+    }
+  } catch (error: any) {
+    services.database = 'error';
+    errors.push(`데이터베이스 오류: ${error.message}`);
+  }
+
+  // API 서버 상태 (서버가 실행 중이면 ok)
+  services.api = 'ok';
+
+  // OAuth 상태 체크 (환경변수 확인)
+  const hasOauthConfig = !!(process.env.CAFE24_CLIENT_ID && process.env.CAFE24_CLIENT_SECRET);
+  services.oauth = hasOauthConfig ? 'ok' : 'not_configured';
+  if (!hasOauthConfig) {
+    errors.push('OAuth 설정이 완료되지 않음');
+  }
+
+  // 전체 상태 결정
+  let overallStatus: 'ok' | 'warning' | 'error' = 'ok';
+  if (errors.length > 0) {
+    if (services.database === 'error') {
+      overallStatus = 'error';
+    } else {
+      overallStatus = 'warning';
+    }
+  }
+
+  res.json({
+    status: overallStatus,
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version ?? '1.0.0',
+    database: services.database === 'ok' ? 'connected' : 'disconnected',
+    services,
+    errors: errors.length > 0 ? errors : undefined,
   });
 });
 

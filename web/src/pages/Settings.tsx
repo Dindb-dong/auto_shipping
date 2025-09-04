@@ -1,20 +1,35 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from 'react-query'
-import { Link, Key, Database, TestTube, ExternalLink } from 'lucide-react'
+import { Link, Key, Database, TestTube, ExternalLink, Store, Plus, Trash2, Edit3 } from 'lucide-react'
 import { oauthApi, webhookApi, authApi } from '../utils/api'
 import { STORAGE_KEYS } from '../utils/constants'
+import { useMallManager, SavedMall } from '../utils/mallManager'
 
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState('oauth')
+  const [activeTab, setActiveTab] = useState('malls')
   const [adminId, setAdminId] = useState('')
   const [adminPw, setAdminPw] = useState('')
   const [isAuthed, setIsAuthed] = useState(false)
   const [mallId, setMallId] = useState('')
   const [installedMallId, setInstalledMallId] = useState('')
 
+  // 쇼핑몰 관리 상태
+  const [showAddMallForm, setShowAddMallForm] = useState(false)
+  const [newMallName, setNewMallName] = useState('')
+  const [newMallId, setNewMallId] = useState('')
+  const [editingMall, setEditingMall] = useState<SavedMall | null>(null)
+
+  // 쇼핑몰 관리자
+  const mallManager = useMallManager()
+  const [savedMalls, setSavedMalls] = useState<SavedMall[]>([])
+  const [currentMall, setCurrentMall] = useState<SavedMall | null>(null)
+
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ADMIN_SESSION)
     setIsAuthed(saved === 'true')
+
+    // 쇼핑몰 데이터 로드
+    loadMallData()
 
     // URL 파라미터에서 설치 완료 정보 확인
     const urlParams = new URLSearchParams(window.location.search)
@@ -27,6 +42,27 @@ const Settings = () => {
       window.history.replaceState({}, document.title, window.location.pathname)
     }
   }, [])
+
+  const loadMallData = () => {
+    // alushealthcare01 쇼핑몰이 없으면 자동으로 추가
+    const alusMall = mallManager.getMallByMallId('alushealthcare01')
+    if (!alusMall) {
+      mallManager.saveMall({
+        name: '알루스헬스케어',
+        mallId: 'alushealthcare01',
+        isConnected: false,
+      })
+    }
+
+    setSavedMalls(mallManager.getSavedMalls())
+    setCurrentMall(mallManager.getCurrentMall())
+
+    // 현재 쇼핑몰이 있으면 mallId 설정
+    const updatedCurrent = mallManager.getCurrentMall()
+    if (updatedCurrent) {
+      setMallId(updatedCurrent.mallId)
+    }
+  }
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -79,6 +115,20 @@ const Settings = () => {
     }
   )
 
+  // OAuth 상태가 변경되면 쇼핑몰 연결 상태 업데이트
+  useEffect(() => {
+    if (currentMall && oauthStatus?.data) {
+      const isConnected = oauthStatus.data.has_token
+      if (currentMall.isConnected !== isConnected) {
+        mallManager.updateMall(currentMall.id, {
+          isConnected,
+          connectedAt: isConnected ? new Date().toISOString() : undefined
+        })
+        loadMallData()
+      }
+    }
+  }, [oauthStatus, currentMall])
+
   // 웹훅 상태 조회
   const { data: webhookStatus, refetch: refetchWebhook } = useQuery(
     'webhookStatus',
@@ -130,7 +180,98 @@ const Settings = () => {
     }
   }
 
+  // 쇼핑몰 관리 함수들
+  const handleAddMall = () => {
+    if (!newMallName.trim() || !newMallId.trim()) {
+      alert('쇼핑몰 이름과 몰 ID를 입력해주세요.')
+      return
+    }
+
+    // 중복 체크
+    const existingMall = mallManager.getMallByMallId(newMallId.trim())
+    if (existingMall) {
+      alert('이미 등록된 몰 ID입니다.')
+      return
+    }
+
+    mallManager.saveMall({
+      name: newMallName.trim(),
+      mallId: newMallId.trim(),
+      isConnected: false,
+    })
+
+    setSavedMalls(mallManager.getSavedMalls())
+    setNewMallName('')
+    setNewMallId('')
+    setShowAddMallForm(false)
+
+    alert('쇼핑몰이 추가되었습니다.')
+  }
+
+  const handleSelectMall = (mall: SavedMall) => {
+    mallManager.setCurrentMall(mall.id)
+    setCurrentMall(mall)
+    setMallId(mall.mallId)
+    loadMallData()
+  }
+
+  const handleDeleteMall = (mall: SavedMall) => {
+    if (confirm(`"${mall.name}" 쇼핑몰을 삭제하시겠습니까?`)) {
+      mallManager.deleteMall(mall.id)
+      setSavedMalls(mallManager.getSavedMalls())
+
+      if (currentMall && currentMall.id === mall.id) {
+        setCurrentMall(null)
+        setMallId('')
+      }
+
+      alert('쇼핑몰이 삭제되었습니다.')
+    }
+  }
+
+  const handleEditMall = (mall: SavedMall) => {
+    setEditingMall(mall)
+    setNewMallName(mall.name)
+    setNewMallId(mall.mallId)
+    setShowAddMallForm(true)
+  }
+
+  const handleUpdateMall = () => {
+    if (!editingMall || !newMallName.trim() || !newMallId.trim()) {
+      alert('쇼핑몰 이름과 몰 ID를 입력해주세요.')
+      return
+    }
+
+    // 중복 체크 (자신 제외)
+    const existingMall = mallManager.getMallByMallId(newMallId.trim())
+    if (existingMall && existingMall.id !== editingMall.id) {
+      alert('이미 등록된 몰 ID입니다.')
+      return
+    }
+
+    mallManager.updateMall(editingMall.id, {
+      name: newMallName.trim(),
+      mallId: newMallId.trim(),
+    })
+
+    setSavedMalls(mallManager.getSavedMalls())
+    setNewMallName('')
+    setNewMallId('')
+    setShowAddMallForm(false)
+    setEditingMall(null)
+
+    alert('쇼핑몰 정보가 수정되었습니다.')
+  }
+
+  const handleCancelForm = () => {
+    setShowAddMallForm(false)
+    setEditingMall(null)
+    setNewMallName('')
+    setNewMallId('')
+  }
+
   const tabs = [
+    { id: 'malls', name: '쇼핑몰 관리', icon: Store },
     { id: 'oauth', name: '카페24 연동', icon: Link },
     { id: 'webhook', name: '웹훅 설정', icon: Key },
     { id: 'database', name: '데이터베이스', icon: Database },
@@ -213,6 +354,177 @@ const Settings = () => {
 
       {/* 탭 컨텐츠 */}
       <div className="space-y-6">
+        {/* 쇼핑몰 관리 */}
+        {activeTab === 'malls' && (
+          <div className="space-y-6">
+            <div className="card">
+              <div className="card-header">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">쇼핑몰 관리</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      등록된 쇼핑몰을 관리하고 현재 사용할 쇼핑몰을 선택하세요.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowAddMallForm(true)}
+                    className="btn btn-primary"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    쇼핑몰 추가
+                  </button>
+                </div>
+              </div>
+              <div className="card-body">
+                {/* 현재 선택된 쇼핑몰 */}
+                {currentMall && (
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-blue-400 mr-3" />
+                        <div>
+                          <p className="text-sm font-medium text-blue-900">
+                            현재 선택된 쇼핑몰: {currentMall.name}
+                          </p>
+                          <p className="text-sm text-blue-600">
+                            몰 ID: {currentMall.mallId}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 text-xs rounded-full ${currentMall.isConnected
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}>
+                          {currentMall.isConnected ? '연동됨' : '연동 안됨'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 쇼핑몰 추가/수정 폼 */}
+                {showAddMallForm && (
+                  <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                    <h4 className="text-sm font-medium text-gray-900 mb-4">
+                      {editingMall ? '쇼핑몰 수정' : '새 쇼핑몰 추가'}
+                    </h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          쇼핑몰 이름
+                        </label>
+                        <input
+                          type="text"
+                          value={newMallName}
+                          onChange={(e) => setNewMallName(e.target.value)}
+                          className="mt-1 input"
+                          placeholder="예: 알루스헬스케어"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          몰 ID
+                        </label>
+                        <input
+                          type="text"
+                          value={newMallId}
+                          onChange={(e) => setNewMallId(e.target.value)}
+                          className="mt-1 input"
+                          placeholder="예: alushealthcare01"
+                        />
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={editingMall ? handleUpdateMall : handleAddMall}
+                          className="btn btn-primary"
+                        >
+                          {editingMall ? '수정' : '추가'}
+                        </button>
+                        <button
+                          onClick={handleCancelForm}
+                          className="btn btn-secondary"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 저장된 쇼핑몰 목록 */}
+                <div className="space-y-3">
+                  {savedMalls.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Store className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>등록된 쇼핑몰이 없습니다.</p>
+                      <p className="text-sm">새 쇼핑몰을 추가해보세요.</p>
+                    </div>
+                  ) : (
+                    savedMalls.map((mall) => (
+                      <div
+                        key={mall.id}
+                        className={`p-4 border rounded-lg transition-colors ${currentMall?.id === mall.id
+                          ? 'border-blue-300 bg-blue-50'
+                          : 'border-gray-200 hover:bg-gray-50'
+                          }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <div className={`h-3 w-3 rounded-full mr-3 ${mall.isConnected ? 'bg-green-400' : 'bg-red-400'
+                              }`} />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {mall.name}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                몰 ID: {mall.mallId}
+                              </p>
+                              {mall.lastUsed && (
+                                <p className="text-xs text-gray-400">
+                                  마지막 사용: {new Date(mall.lastUsed).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-1 text-xs rounded-full ${mall.isConnected
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                              }`}>
+                              {mall.isConnected ? '연동됨' : '연동 안됨'}
+                            </span>
+                            {currentMall?.id !== mall.id && (
+                              <button
+                                onClick={() => handleSelectMall(mall)}
+                                className="btn btn-secondary text-xs"
+                              >
+                                선택
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleEditMall(mall)}
+                              className="btn btn-secondary text-xs"
+                            >
+                              <Edit3 className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMall(mall)}
+                              className="btn btn-danger text-xs"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 카페24 연동 */}
         {activeTab === 'oauth' && (
           <div className="space-y-6">
