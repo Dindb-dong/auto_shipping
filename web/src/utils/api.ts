@@ -132,6 +132,10 @@ export const ordersApi = {
   // 주문 통계 조회
   getOrderStats: (params?: { start_date?: string; end_date?: string }): Promise<ApiResponse<{ data: OrderStats }>> =>
     api.get('/api/orders/stats/summary', { params }).then(res => res.data),
+
+  // 송장번호 업데이트
+  updateTrackingNumber: (orderId: string, data: { tracking_no: string; shipping_company_code?: string }): Promise<ApiResponse> =>
+    api.put(`/api/orders/${orderId}/tracking`, data).then(res => res.data),
 }
 
 // 웹훅 관련 API

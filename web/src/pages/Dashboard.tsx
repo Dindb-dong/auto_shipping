@@ -194,12 +194,12 @@ const Dashboard = () => {
                       </td>
                       <td className="table-cell">
                         <span className={`badge ${order.shipping_status === 'M' ? 'badge-info' :
-                          order.shipping_status === 'D' ? 'badge-success' :
+                          order.shipping_status === 'D' || order.shipping_status === 'T' ? 'badge-success' :
                             order.shipping_status === 'C' ? 'badge-danger' :
                               'badge-warning'
                           }`}>
                           {order.shipping_status === 'M' ? '배송중' :
-                            order.shipping_status === 'D' ? '배송완료' :
+                            order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
                               order.shipping_status === 'C' ? '취소' :
                                 order.shipping_status || '-'}
                         </span>

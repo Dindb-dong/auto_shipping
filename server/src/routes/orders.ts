@@ -66,9 +66,28 @@ router.get('/', async (req: Request, res: Response) => {
       });
     }
 
+    // 각 주문에 대해 배송정보 조회
+    const ordersWithShipments = await Promise.all(
+      orders.orders.map(async (order: any) => {
+        try {
+          const shipments = await cafe24Client.getShipments(mallId, accessToken, order.order_id);
+          return {
+            ...order,
+            shipments: shipments.shipments || []
+          };
+        } catch (error) {
+          console.warn(`Failed to fetch shipments for order ${order.order_id}:`, error);
+          return {
+            ...order,
+            shipments: []
+          };
+        }
+      })
+    );
+
     res.json({
       success: true,
-      data: orders.orders,
+      data: ordersWithShipments,
       pagination: {
         total: orders.total_count || orders.orders.length,
         limit: queryParams.limit || 50,
@@ -210,21 +229,26 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
     const finalEndDate = end_date || defaultEndDate.toISOString().split('T')[0];
 
     // 각 배송 상태별로 주문 조회
-    const statuses = ['shipping', 'delivered', 'returned', 'cancelled'];
+    const statusMapping = {
+      'shipping': 'M',      // 배송중
+      'delivered': 'D',     // 배송완료
+      'returned': 'R',      // 반품
+      'cancelled': 'C'      // 취소
+    };
     const stats: Record<string, number> = {};
 
-    for (const status of statuses) {
+    for (const [statusKey, cafe24Status] of Object.entries(statusMapping)) {
       try {
         const orders: any = await cafe24Client.getOrders(mallId, accessToken, {
           start_date: finalStartDate,
           end_date: finalEndDate,
-          status,
+          status: cafe24Status,
           limit: 1
         });
-        stats[status] = orders.total_count || 0;
+        stats[statusKey] = orders.total_count || 0;
       } catch (error) {
-        console.warn(`Failed to fetch stats for status ${status}:`, error);
-        stats[status] = 0;
+        console.warn(`Failed to fetch stats for status ${statusKey}:`, error);
+        stats[statusKey] = 0;
       }
     }
 
@@ -242,6 +266,50 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch order statistics',
+      message: error.message
+    });
+  }
+});
+
+// 송장번호 업데이트
+router.put('/:orderId/tracking', async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const { tracking_no, shipping_company_code = '0018' } = req.body; // 기본값: 한진택배
+
+    if (!orderId || !tracking_no) {
+      return res.status(400).json({
+        success: false,
+        error: 'Order ID and tracking number are required'
+      });
+    }
+
+    const mallId = process.env.MALL_ID;
+    if (!mallId) {
+      throw new Error('MALL_ID environment variable is required');
+    }
+
+    const accessToken = await getValidAccessTokenForMall(mallId);
+
+    // 송장번호 업데이트 (배송정보 생성/수정)
+    const result = await cafe24Client.updateShipment(mallId, accessToken, orderId, {
+      tracking_no,
+      shipping_company_code,
+      status: 'shipping' // 배송중으로 상태 변경
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      message: '송장번호가 성공적으로 업데이트되었습니다'
+    });
+
+  } catch (error: any) {
+    console.error('Tracking number update error:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update tracking number',
       message: error.message
     });
   }

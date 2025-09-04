@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from 'react-query'
-import { Search, Download, RefreshCw, Package, MapPin } from 'lucide-react'
+import { Search, Download, RefreshCw, Package, MapPin, X } from 'lucide-react'
 import { ordersApi } from '../utils/api'
-import { formatNumber, formatDate } from '../utils/helpers'
-import { SORT_OPTIONS, SHIPPING_STATUS_LABELS } from '../utils/constants'
+import { formatDate } from '../utils/helpers'
+import { SORT_OPTIONS, SHIPPING_STATUS_LABELS, SHIPPING_COMPANIES } from '../utils/constants'
 
 const Orders = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -22,6 +22,13 @@ const Orders = () => {
   };
 
   const [dateRange, setDateRange] = useState(getDefaultDateRange())
+
+  // 배송업체 선택 모달 상태
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
+  const [companySearchTerm, setCompanySearchTerm] = useState('')
+  const [trackingNumber, setTrackingNumber] = useState('')
+  const [selectedCompany, setSelectedCompany] = useState('0018') // 기본값: 한진택배
 
   // 주문 목록 조회
   const { data: ordersData, isLoading, refetch } = useQuery(
@@ -58,18 +65,18 @@ const Orders = () => {
   const handleExport = () => {
     // CSV 내보내기 로직
     const csvContent = [
-      ['주문번호', '고객명', '이메일', '주문일시', '상태', '금액', '배송지'].join(','),
+      ['주문번호', '고객명', '이메일', '주문일시', '상태', '배송지', '송장번호'].join(','),
       ...filteredOrders.map((order: any) => [
         order.order_id,
         order.billing_name || '-',
         order.member_email || '-',
         formatDate(order.order_date),
         order.shipping_status === 'M' ? '배송중' :
-          order.shipping_status === 'D' ? '배송완료' :
+          order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
             order.shipping_status === 'C' ? '취소' :
               order.shipping_status || '-',
-        order.payment_amount || 0,
-        `${order.shipping_address?.city || '-'} ${order.shipping_address?.address1 || '-'}`
+        `${order.shipping_address?.city || '-'} ${order.shipping_address?.address1 || '-'}`,
+        order.tracking_no || order.shipments?.[0]?.tracking_no || '-'
       ].join(','))
     ].join('\n')
 
@@ -83,6 +90,58 @@ const Orders = () => {
     link.click()
     document.body.removeChild(link)
   }
+
+  const handleViewDetails = (order: any) => {
+    // 상세보기 모달 또는 페이지로 이동
+    alert(`주문 상세보기: ${order.order_id}\n고객: ${order.billing_name}\n상태: ${order.shipping_status}`)
+  }
+
+  const handleAddTracking = (order: any) => {
+    // 배송업체 선택 모달 열기
+    const currentTracking = order.tracking_no || order.shipments?.[0]?.tracking_no || ''
+    setSelectedOrder(order)
+    setTrackingNumber(currentTracking)
+    setCompanySearchTerm('')
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedOrder(null)
+    setTrackingNumber('')
+    setCompanySearchTerm('')
+    setSelectedCompany('0018')
+  }
+
+  const handleSaveTracking = async () => {
+    if (!selectedOrder || !trackingNumber.trim()) {
+      alert('송장번호를 입력해주세요.')
+      return
+    }
+
+    try {
+      await ordersApi.updateTrackingNumber(selectedOrder.order_id, {
+        tracking_no: trackingNumber.trim(),
+        shipping_company_code: selectedCompany
+      })
+
+      const companyName = SHIPPING_COMPANIES.find(c => c.code === selectedCompany)?.name || '알 수 없음'
+      alert(`송장번호 ${trackingNumber}가 ${companyName}으로 입력되었습니다.`)
+
+      // 데이터 새로고침
+      refetch()
+      handleCloseModal()
+    } catch (error: any) {
+      console.error('송장번호 업데이트 실패:', error)
+      alert(`송장번호 업데이트에 실패했습니다: ${error.response?.data?.message || error.message}`)
+    }
+  }
+
+  // 배송업체 검색 필터링
+  const filteredCompanies = SHIPPING_COMPANIES.filter(company =>
+    company.name.toLowerCase().includes(companySearchTerm.toLowerCase()) ||
+    company.code.includes(companySearchTerm)
+  )
 
   return (
     <div className="space-y-6">
@@ -209,7 +268,6 @@ const Orders = () => {
                     <th className="table-header-cell">주문일시</th>
                     <th className="table-header-cell">배송지</th>
                     <th className="table-header-cell">상태</th>
-                    <th className="table-header-cell">금액</th>
                     <th className="table-header-cell">송장번호</th>
                     <th className="table-header-cell">작업</th>
                   </tr>
@@ -248,23 +306,22 @@ const Orders = () => {
                       </td>
                       <td className="table-cell">
                         <span className={`badge ${order.shipping_status === 'M' ? 'badge-info' :
-                          order.shipping_status === 'D' ? 'badge-success' :
+                          order.shipping_status === 'D' || order.shipping_status === 'T' ? 'badge-success' :
                             order.shipping_status === 'C' ? 'badge-danger' :
                               'badge-warning'
                           }`}>
                           {order.shipping_status === 'M' ? '배송중' :
-                            order.shipping_status === 'D' ? '배송완료' :
+                            order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
                               order.shipping_status === 'C' ? '취소' :
                                 order.shipping_status || '-'}
                         </span>
                       </td>
                       <td className="table-cell">
-                        <div className="text-sm text-gray-900">
-                          {formatNumber(order.payment_amount)}원
-                        </div>
-                      </td>
-                      <td className="table-cell">
-                        {order.shipments && order.shipments.length > 0 ? (
+                        {order.tracking_no ? (
+                          <div className="text-sm text-gray-900">
+                            {order.tracking_no}
+                          </div>
+                        ) : order.shipments && order.shipments.length > 0 ? (
                           <div className="text-sm text-gray-900">
                             {order.shipments[0].tracking_no}
                           </div>
@@ -274,14 +331,18 @@ const Orders = () => {
                       </td>
                       <td className="table-cell">
                         <div className="flex items-center space-x-2">
-                          <button className="text-primary-600 hover:text-primary-900 text-sm">
+                          <button
+                            onClick={() => handleViewDetails(order)}
+                            className="text-primary-600 hover:text-primary-900 text-sm"
+                          >
                             상세보기
                           </button>
-                          {(!order.shipments || order.shipments.length === 0) && (
-                            <button className="text-green-600 hover:text-green-900 text-sm">
-                              송장입력
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleAddTracking(order)}
+                            className="text-green-600 hover:text-green-900 text-sm"
+                          >
+                            {order.tracking_no || order.shipments?.[0]?.tracking_no ? '송장수정' : '송장입력'}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -305,6 +366,104 @@ const Orders = () => {
           )}
         </div>
       </div>
+
+      {/* 배송업체 선택 모달 */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">
+                송장번호 입력 - {selectedOrder?.order_id}
+              </h3>
+              <button
+                onClick={handleCloseModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* 모달 내용 */}
+            <div className="p-6 space-y-6">
+              {/* 송장번호 입력 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  송장번호
+                </label>
+                <input
+                  type="text"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  placeholder="송장번호를 입력하세요"
+                  className="input w-full"
+                />
+              </div>
+
+              {/* 배송업체 검색 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  배송업체 검색
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={companySearchTerm}
+                    onChange={(e) => setCompanySearchTerm(e.target.value)}
+                    placeholder="배송업체명 또는 코드로 검색..."
+                    className="input w-full pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* 배송업체 목록 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  배송업체 선택
+                </label>
+                <div className="border rounded-lg max-h-60 overflow-y-auto">
+                  {filteredCompanies.map((company) => (
+                    <button
+                      key={company.code}
+                      onClick={() => setSelectedCompany(company.code)}
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-b-0 ${selectedCompany === company.code ? 'bg-blue-50 border-blue-200' : ''
+                        }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-gray-900">{company.name}</div>
+                          <div className="text-sm text-gray-500">코드: {company.code}</div>
+                        </div>
+                        {selectedCompany === company.code && (
+                          <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 모달 푸터 */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t bg-gray-50">
+              <button
+                onClick={handleCloseModal}
+                className="btn btn-secondary"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSaveTracking}
+                className="btn btn-primary"
+                disabled={!trackingNumber.trim()}
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
