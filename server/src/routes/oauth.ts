@@ -110,17 +110,22 @@ router.get('/callback', async (req: Request, res: Response) => {
 
     // 토큰 교환
     const tokenUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/token`;
+
+    // Basic Auth 헤더 생성 (client_id:client_secret을 base64 인코딩)
+    const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
       redirect_uri: `${backendUrl}/oauth/callback`,
-      client_id: clientId,
-      client_secret: clientSecret,
     });
 
     const tokenResponse = await fetch(tokenUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${credentials}`
+      },
       body,
     });
 
@@ -131,20 +136,29 @@ router.get('/callback', async (req: Request, res: Response) => {
 
     const tokens = await tokenResponse.json() as Cafe24TokenResponse;
 
-    // 토큰을 DB에 저장
-    await saveTokensForMall(mallId, tokens);
+    // 토큰을 DB에 저장 (실패해도 계속 진행)
+    try {
+      await saveTokensForMall(mallId, tokens);
+      console.log(`OAuth tokens saved successfully for mall: ${mallId}`);
+    } catch (dbError) {
+      console.error('Failed to save tokens to database:', dbError);
+      // DB 저장 실패해도 토큰 교환은 성공했으므로 계속 진행
+    }
 
-    // 로그인 로그 저장
-    await saveLoginLog({
-      ip: req.ip || req.connection.remoteAddress || 'unknown',
-      user_agent: req.get('User-Agent'),
-      success: true
-    });
+    // 로그인 로그 저장 (실패해도 계속 진행)
+    try {
+      await saveLoginLog({
+        ip: req.ip || req.socket.remoteAddress || 'unknown',
+        user_agent: req.get('User-Agent'),
+        success: true
+      });
+    } catch (logError) {
+      console.error('Failed to save login log:', logError);
+      // 로그 저장 실패해도 계속 진행
+    }
 
     // state 쿠키 삭제
     res.clearCookie('oauth_state');
-
-    console.log(`OAuth tokens saved successfully for mall: ${mallId}`);
 
     // 성공 후 프론트엔드로 리다이렉트
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -153,12 +167,17 @@ router.get('/callback', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('OAuth callback error:', error);
 
-    await saveLoginLog({
-      ip: req.ip || req.connection.remoteAddress || 'unknown',
-      user_agent: req.get('User-Agent'),
-      success: false,
-      error_message: error.message
-    });
+    // 로그인 로그 저장 (실패해도 계속 진행)
+    try {
+      await saveLoginLog({
+        ip: req.ip || req.socket.remoteAddress || 'unknown',
+        user_agent: req.get('User-Agent'),
+        success: false,
+        error_message: error.message
+      });
+    } catch (logError) {
+      console.error('Failed to save error log:', logError);
+    }
 
     res.status(500).send(`
       <html>

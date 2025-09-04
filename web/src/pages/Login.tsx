@@ -188,7 +188,7 @@ const Login = () => {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">프론트엔드:</span>
-                <span className="text-gray-900">Cloudflare Pages</span>
+                <span className="text-gray-900">Netlify</span>
               </div>
             </div>
           </div>

@@ -39,15 +39,18 @@ export class Cafe24Client {
   // OAuth 코드를 액세스 토큰으로 교환 (특정 몰)
   async exchangeCode(mallId: string, code: string, redirectUri: string): Promise<Cafe24TokenResponse> {
     const baseUrl = this.getBaseUrl(mallId);
+
+    // Basic Auth 헤더 생성
+    const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+
     const response = await fetch(`${baseUrl}/oauth/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${credentials}`
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
         code,
         redirect_uri: redirectUri,
       }).toString(),
@@ -65,15 +68,18 @@ export class Cafe24Client {
   // 리프레시 토큰으로 액세스 토큰 갱신 (특정 몰)
   async refreshToken(mallId: string, refreshToken: string): Promise<Cafe24TokenResponse> {
     const baseUrl = this.getBaseUrl(mallId);
+
+    // Basic Auth 헤더 생성
+    const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
+
     const response = await fetch(`${baseUrl}/oauth/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${credentials}`
       },
       body: new URLSearchParams({
         grant_type: 'refresh_token',
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
         refresh_token: refreshToken,
       }).toString(),
     });
