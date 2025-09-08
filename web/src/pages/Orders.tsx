@@ -370,7 +370,7 @@ const Orders = () => {
       {/* 배송업체 선택 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden">
             {/* 모달 헤더 */}
             <div className="flex items-center justify-between p-6 border-b">
               <h3 className="text-lg font-semibold text-gray-900">
@@ -385,7 +385,7 @@ const Orders = () => {
             </div>
 
             {/* 모달 내용 */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto">
               {/* 송장번호 입력 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

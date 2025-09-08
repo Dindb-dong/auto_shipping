@@ -220,6 +220,7 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
 
     // 각 배송 상태별로 주문 조회
     const statusMapping = {
+      'preparing': 'F',     // 배송전
       'shipping': 'M',      // 배송중
       'delivered': 'D',     // 배송완료
       'returned': 'R',      // 반품
