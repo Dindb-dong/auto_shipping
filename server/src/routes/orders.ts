@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { cafe24Client } from '../lib/cafe24';
 import { getValidAccessToken, getValidAccessTokenForMall, getShipmentLogs } from '../lib/database';
+import { buildTrackingUrl, normalizeShippingCompany } from '../lib/tracking';
 
 const router = Router();
 
@@ -316,3 +317,55 @@ router.put('/:orderId/tracking', async (req: Request, res: Response) => {
 });
 
 export default router;
+
+// 주문의 실시간 배송조회 (한진 URL 포함)
+router.get('/:orderId/tracking', async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Order ID is required'
+      });
+    }
+
+    const mallId = process.env.MALL_ID;
+    if (!mallId) {
+      throw new Error('MALL_ID environment variable is required');
+    }
+
+    const accessToken = await getValidAccessTokenForMall(mallId);
+
+    // Get shipments from Cafe24
+    const shipmentsResp = await cafe24Client.getShipments(mallId, accessToken, orderId);
+    const shipments = shipmentsResp?.shipments || [];
+
+    // Pick first shipment with tracking number
+    const primary = shipments.find((s: any) => s.tracking_no) || shipments[0];
+
+    if (!primary) {
+      return res.json({
+        success: true,
+        data: { order_id: orderId, shipments: [], tracking: null }
+      });
+    }
+
+    const normalizedCarrier = normalizeShippingCompany(primary.shipping_company_code);
+    const url = buildTrackingUrl(primary.shipping_company_code, primary.tracking_no);
+
+    const tracking = {
+      order_id: orderId,
+      tracking_no: primary.tracking_no,
+      shipping_company_code: primary.shipping_company_code,
+      carrier: normalizedCarrier,
+      status: primary.status,
+      url
+    };
+
+    res.json({ success: true, data: { order_id: orderId, shipments, tracking } });
+  } catch (error: any) {
+    console.error('Tracking fetch error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch tracking', message: error.message });
+  }
+});

@@ -129,6 +129,10 @@ export const ordersApi = {
   getOrderShipments: (orderId: string): Promise<ApiResponse<{ data: any[] }>> =>
     api.get(`/api/orders/${orderId}/shipments`).then(res => res.data),
 
+  // 주문의 실시간 배송 조회 (추적 URL 포함)
+  getOrderTracking: (orderId: string): Promise<ApiResponse<{ data: { order_id: string; shipments: any[]; tracking: { tracking_no: string; shipping_company_code: string; carrier?: string; status?: string; url?: string } } }>> =>
+    api.get(`/api/orders/${orderId}/tracking`).then(res => res.data),
+
   // 주문 통계 조회
   getOrderStats: (params?: { start_date?: string; end_date?: string }): Promise<ApiResponse<{ data: OrderStats }>> =>
     api.get('/api/orders/stats/summary', { params }).then(res => res.data),

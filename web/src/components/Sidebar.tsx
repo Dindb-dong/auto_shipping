@@ -4,14 +4,14 @@ import {
   Package,
   Settings,
   Truck,
-  BarChart3
+  //BarChart3
 } from 'lucide-react'
 
 const navigation = [
   { name: '대시보드', href: '/', icon: LayoutDashboard },
   { name: '주문 관리', href: '/orders', icon: Package },
   { name: '배송 현황', href: '/shipments', icon: Truck },
-  { name: '통계', href: '/analytics', icon: BarChart3 },
+  //{ name: '통계', href: '/analytics', icon: BarChart3 },
   { name: '설정', href: '/settings', icon: Settings },
 ]
 

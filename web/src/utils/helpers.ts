@@ -45,7 +45,8 @@ export const getShippingStatusLabel = (status: string): string => {
 
 // 배송사 이름 가져오기
 export const getShippingCompanyName = (code: string): string => {
-  return SHIPPING_COMPANIES[code as keyof typeof SHIPPING_COMPANIES] || code
+  const company = SHIPPING_COMPANIES.find(comp => comp.code === code)
+  return company?.name || code
 }
 
 // 숫자 포맷팅 (천 단위 콤마)

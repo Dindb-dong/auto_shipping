@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
+import Shipments from './pages/Shipments'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="orders" element={<Orders />} />
+          <Route path="shipments" element={<Shipments />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
