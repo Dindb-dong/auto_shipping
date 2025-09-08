@@ -283,10 +283,10 @@ router.put('/:orderId/tracking', async (req: Request, res: Response) => {
     const accessToken = await getValidAccessTokenForMall(mallId);
 
     // 송장번호 업데이트 (배송정보 생성/수정)
+    // 상태는 강제 변경하지 않음 (카페24에서 상태 전환 불가 시 422 발생 방지)
     const result = await cafe24Client.updateShipment(mallId, accessToken, orderId, {
       tracking_no,
-      shipping_company_code,
-      status: 'shipping' // 배송중으로 상태 변경
+      shipping_company_code
     });
 
     res.json({
@@ -307,6 +307,44 @@ router.put('/:orderId/tracking', async (req: Request, res: Response) => {
 });
 
 export default router;
+
+// 주문 배송상태만 변경
+router.put('/:orderId/status', async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+    const { status, status_additional_info } = req.body as { status: 'standby' | 'shipping' | 'shipped'; status_additional_info?: string };
+
+    if (!orderId || !status) {
+      return res.status(400).json({ success: false, error: 'Order ID and status are required' });
+    }
+
+    const mallId = process.env.MALL_ID;
+    if (!mallId) {
+      throw new Error('MALL_ID environment variable is required');
+    }
+
+    const accessToken = await getValidAccessTokenForMall(mallId);
+
+    // 배송코드 조회
+    const shipmentsResp = await cafe24Client.getShipments(mallId, accessToken, orderId);
+    const shipments = shipmentsResp?.shipments || [];
+    if (shipments.length === 0 || !shipments[0].shipping_code) {
+      return res.status(400).json({ success: false, error: 'No shipment found to update status' });
+    }
+
+    const shippingCode = shipments[0].shipping_code;
+
+    const result = await cafe24Client.updateShipmentStatus(mallId, accessToken, orderId, shippingCode, {
+      status,
+      status_additional_info
+    });
+
+    res.json({ success: true, data: result, message: '배송상태가 업데이트되었습니다' });
+  } catch (error: any) {
+    console.error('Shipping status update error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update shipping status', message: error.message });
+  }
+});
 
 // 주문의 실시간 배송조회 (한진 URL 포함)
 router.get('/:orderId/tracking', async (req: Request, res: Response) => {

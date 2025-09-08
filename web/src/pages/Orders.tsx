@@ -91,11 +91,6 @@ const Orders = () => {
     document.body.removeChild(link)
   }
 
-  const handleViewDetails = (order: any) => {
-    // 상세보기 모달 또는 페이지로 이동
-    alert(`주문 상세보기: ${order.order_id}\n고객: ${order.billing_name}\n상태: ${order.shipping_status}`)
-  }
-
   const handleAddTracking = (order: any) => {
     // 배송업체 선택 모달 열기
     const currentTracking = order.tracking_no || order.shipments?.[0]?.tracking_no || ''
@@ -127,6 +122,17 @@ const Orders = () => {
 
       const companyName = SHIPPING_COMPANIES.find(c => c.code === selectedCompany)?.name || '알 수 없음'
       alert(`송장번호 ${trackingNumber}가 ${companyName}으로 입력되었습니다.`)
+
+      // 배송상태도 배송중으로 변경할지 확인
+      const confirmStatus = window.confirm('배송상태를 배송중으로 변경하시겠습니까?')
+      if (confirmStatus) {
+        try {
+          await ordersApi.updateShippingStatus(selectedOrder.order_id, { status: 'shipping' })
+        } catch (e: any) {
+          console.error('배송상태 업데이트 실패:', e)
+          alert(`배송상태 업데이트에 실패했습니다: ${e.response?.data?.message || e.message}`)
+        }
+      }
 
       // 데이터 새로고침
       refetch()
@@ -332,14 +338,11 @@ const Orders = () => {
                       <td className="table-cell">
                         <div className="flex items-center space-x-2">
                           <button
-                            onClick={() => handleViewDetails(order)}
-                            className="text-primary-600 hover:text-primary-900 text-sm"
-                          >
-                            상세보기
-                          </button>
-                          <button
                             onClick={() => handleAddTracking(order)}
-                            className="text-green-600 hover:text-green-900 text-sm"
+                            className={`${(order.tracking_no || order.shipments?.[0]?.tracking_no)
+                              ? 'text-red-600 hover:text-red-900'
+                              : 'text-green-600 hover:text-green-900'
+                              } text-sm`}
                           >
                             {order.tracking_no || order.shipments?.[0]?.tracking_no ? '송장수정' : '송장입력'}
                           </button>

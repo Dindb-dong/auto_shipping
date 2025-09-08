@@ -140,6 +140,10 @@ export const ordersApi = {
   // 송장번호 업데이트
   updateTrackingNumber: (orderId: string, data: { tracking_no: string; shipping_company_code?: string }): Promise<ApiResponse> =>
     api.put(`/api/orders/${orderId}/tracking`, data).then(res => res.data),
+
+  // 배송상태 업데이트 (standby | shipping | shipped)
+  updateShippingStatus: (orderId: string, data: { status: 'standby' | 'shipping' | 'shipped'; status_additional_info?: string }): Promise<ApiResponse> =>
+    api.put(`/api/orders/${orderId}/status`, data).then(res => res.data),
 }
 
 // 웹훅 관련 API

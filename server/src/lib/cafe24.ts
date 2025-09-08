@@ -110,7 +110,7 @@ export class Cafe24Client {
     shipmentData: {
       tracking_no: string;
       shipping_company_code: string;
-      status: string;
+      status?: string;
       order_item_code?: string[];
       shipping_code?: string;
       carrier_id?: number;
@@ -124,7 +124,7 @@ export class Cafe24Client {
       request: {
         tracking_no: shipmentData.tracking_no,
         shipping_company_code: shipmentData.shipping_company_code,
-        status: shipmentData.status,
+        ...(shipmentData.status && { status: shipmentData.status }),
         ...(shipmentData.order_item_code && { order_item_code: shipmentData.order_item_code }),
         ...(shipmentData.shipping_code && { shipping_code: shipmentData.shipping_code }),
         ...(shipmentData.carrier_id && { carrier_id: shipmentData.carrier_id }),
@@ -166,6 +166,48 @@ export class Cafe24Client {
     return data;
   }
 
+  // 주문 상세 조회
+  async getOrder(
+    mallId: string,
+    accessToken: string,
+    orderId: string
+  ): Promise<any> {
+    const data = await this.callApiWithToken(mallId, `/admin/orders/${orderId}`, {
+      method: 'GET'
+    });
+    return data;
+  }
+
+  // 배송상태만 수정 (PUT status 전용)
+  async updateShipmentStatus(
+    mallId: string,
+    accessToken: string,
+    orderId: string,
+    shippingCode: string,
+    params: { status: 'standby' | 'shipping' | 'shipped'; status_additional_info?: string }
+  ): Promise<any> {
+    const payload = {
+      shop_no: 1,
+      request: {
+        status: params.status,
+        ...(params.status_additional_info && { status_additional_info: params.status_additional_info })
+      }
+    };
+
+    console.log('🔄 Cafe24 Shipment Status Update Request:', {
+      url: `${this.getBaseUrl(mallId)}/admin/orders/${orderId}/shipments/${shippingCode}`,
+      payload
+    });
+
+    const data = await this.callApiWithToken(mallId, `/admin/orders/${orderId}/shipments/${shippingCode}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    console.log('✅ Cafe24 Shipment Status Update Response:', data);
+    return data;
+  }
+
   // 배송정보 수정 (기존 송장번호가 있는 경우)
   async updateShipment(
     mallId: string,
@@ -174,31 +216,73 @@ export class Cafe24Client {
     shipmentData: {
       tracking_no: string;
       shipping_company_code: string;
-      status: string;
+      status?: string;
       order_item_code?: string[];
       shipping_code?: string;
       carrier_id?: number;
     }
   ): Promise<any> {
-    // 기존 배송정보가 있으면 수정, 없으면 생성
+    // 기존 배송정보가 있으면 PUT, 없으면 POST로 생성
     try {
-      // 먼저 기존 배송정보 조회
-      const existingShipments = await this.getShipments(mallId, accessToken, orderId);
+      const [existingShipments, orderDetail] = await Promise.all([
+        this.getShipments(mallId, accessToken, orderId),
+        this.getOrder(mallId, accessToken, orderId)
+      ]);
+
+      const order = orderDetail?.order;
+      const currentShippingStatus: string | undefined = order?.shipping_status; // e.g., 'F', 'M', 'D', 'C'
+      const orderItemCodes: string[] | undefined = order?.items?.map((it: any) => it.order_item_code).filter(Boolean);
+
+      // 상태 전이 검증: F(배송전) 또는 M(배송중)에서만 진행
+      const canShip = currentShippingStatus === 'F' || currentShippingStatus === 'M';
+      if (!canShip) {
+        throw new Error(`Order state does not allow shipping update (current=${currentShippingStatus || 'unknown'})`);
+      }
 
       if (existingShipments.shipments && existingShipments.shipments.length > 0) {
-        // 기존 배송정보가 있으면 PUT으로 수정
-        return this.createShipment(mallId, accessToken, orderId, {
-          ...shipmentData,
-          shipping_code: existingShipments.shipments[0].shipping_code
+        const shippingCode = existingShipments.shipments[0].shipping_code;
+
+        const payload = {
+          shop_no: 1,
+          request: {
+            tracking_no: shipmentData.tracking_no,
+            shipping_company_code: shipmentData.shipping_company_code,
+            // PUT 시 상태는 변경하지 않음 (422 방지)
+            ...(shipmentData.order_item_code && { order_item_code: shipmentData.order_item_code }),
+            ...(orderItemCodes && !shipmentData.order_item_code && { order_item_code: orderItemCodes }),
+            ...(shipmentData.order_item_code && { order_item_code: shipmentData.order_item_code }),
+            ...(shipmentData.carrier_id && { carrier_id: shipmentData.carrier_id }),
+          }
+        };
+
+        console.log('🔄 Cafe24 Shipment Update Request:', {
+          url: `${this.getBaseUrl(mallId)}/admin/orders/${orderId}/shipments/${shippingCode}`,
+          payload
         });
-      } else {
-        // 기존 배송정보가 없으면 POST로 생성
-        return this.createShipment(mallId, accessToken, orderId, shipmentData);
+
+        const data = await this.callApiWithToken(mallId, `/admin/orders/${orderId}/shipments/${shippingCode}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        console.log('✅ Cafe24 Shipment Update Response:', data);
+        return data;
       }
+
+      // 기존 배송정보가 없으면 POST로 생성
+      return this.createShipment(mallId, accessToken, orderId, {
+        ...shipmentData,
+        // 생성 시 status는 필수이므로 유효 전이로 고정
+        status: 'shipping',
+        order_item_code: shipmentData.order_item_code || orderItemCodes
+      });
     } catch (error) {
-      // 조회 실패 시 새로 생성
       console.log('⚠️ Failed to get existing shipments, creating new one');
-      return this.createShipment(mallId, accessToken, orderId, shipmentData);
+      // 조회 실패 시에도 안전하게 생성 시도 (status 필요)
+      return this.createShipment(mallId, accessToken, orderId, {
+        ...shipmentData,
+        status: shipmentData.status || 'shipping'
+      });
     }
   }
 

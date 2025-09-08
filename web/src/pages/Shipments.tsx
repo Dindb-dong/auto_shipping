@@ -3,6 +3,7 @@ import { useQuery } from 'react-query'
 import { Search, RefreshCw, Truck, ExternalLink } from 'lucide-react'
 import { ordersApi } from '../utils/api'
 import { formatDate } from '../utils/helpers'
+import { SHIPPING_COMPANIES } from '../utils/constants'
 
 const Shipments = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -75,6 +76,11 @@ const Shipments = () => {
     } catch (e: any) {
       alert(`배송조회 실패: ${e.message}`)
     }
+  }
+
+  const convertedShippingCompanyCode = (code: string) => {
+    const company = SHIPPING_COMPANIES.find(comp => comp.code === code)
+    return company?.name || code || '-'
   }
 
   return (
@@ -171,7 +177,7 @@ const Shipments = () => {
                         )}
                       </td>
                       <td className="table-cell">
-                        <div className="text-sm text-gray-900">{r.shipping_company_code || '-'}</div>
+                        <div className="text-sm text-gray-900">{convertedShippingCompanyCode(r.shipping_company_code)}</div>
                       </td>
                       <td className="table-cell">
                         <span className={`badge ${r.status === 'shipping' || r.status === 'M' ? 'badge-info' : r.status === 'delivered' || r.status === 'D' || r.status === 'T' ? 'badge-success' : r.status === 'C' ? 'badge-danger' : 'badge-warning'}`}>
