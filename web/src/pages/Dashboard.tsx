@@ -4,11 +4,12 @@ import {
   Truck,
   CheckCircle,
   AlertCircle,
-  XCircle,
   Settings,
   Server,
   Database,
-  Link
+  Link,
+  Download,
+  XCircle
 } from 'lucide-react'
 import { ordersApi, healthApi, oauthApi } from '../utils/api'
 import { formatNumber, formatDate } from '../utils/helpers'
@@ -31,15 +32,6 @@ const Dashboard = () => {
   };
 
   const defaultDateRange = getDefaultDateRange();
-
-  // 주문 통계 조회
-  const { data: statsData, isLoading: statsLoading } = useQuery(
-    'orderStats',
-    () => ordersApi.getOrderStats(defaultDateRange),
-    {
-      refetchInterval: 30000, // 30초마다 갱신
-    }
-  )
 
   // 최근 주문 조회
   const { data: recentOrdersData, isLoading: ordersLoading } = useQuery(
@@ -74,16 +66,28 @@ const Dashboard = () => {
     }
   )
 
-  const stats = statsData?.data?.data?.stats || {
-    shipping: 0,
-    delivered: 0,
-    returned: 0,
-    cancelled: 0,
-  }
-
+  // 최근 주문에서 상태를 집계하여 카드에 표시 (서버 통계 대신 신뢰 가능한 클라이언트 계산)
   const recentOrders = (recentOrdersData?.data as any) || []
+  const stats = recentOrders.reduce((acc: any, order: any) => {
+    const s = order?.shipping_status
+    if (s === 'F') acc.preparing += 1
+    else if (s === 'M') acc.shipping += 1
+    else if (s === 'D' || s === 'T') acc.delivered += 1
+    else if (s === 'R') acc.returned += 1
+    else if (s === 'C') acc.cancelled += 1
+    return acc
+  }, { preparing: 0, shipping: 0, delivered: 0, returned: 0, cancelled: 0 } as { [k: string]: number })
+
+  const recentOrdersTable = (recentOrdersData?.data as any) || []
 
   const statCards = [
+    {
+      name: '배송전',
+      value: stats.preparing,
+      icon: Download,
+      color: 'text-yellow-600',
+      bgColor: 'bg-yellow-100',
+    },
     {
       name: '배송중',
       value: stats.shipping,
@@ -102,8 +106,8 @@ const Dashboard = () => {
       name: '반품',
       value: stats.returned,
       icon: AlertCircle,
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-100',
+      color: 'text-red-600',
+      bgColor: 'bg-red-100',
     },
     {
       name: '취소',
@@ -114,7 +118,7 @@ const Dashboard = () => {
     },
   ]
 
-  if (statsLoading || ordersLoading) {
+  if (ordersLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -159,7 +163,7 @@ const Dashboard = () => {
           <h3 className="text-lg font-medium text-gray-900">최근 주문</h3>
         </div>
         <div className="card-body p-0">
-          {recentOrders.length > 0 ? (
+          {recentOrdersTable.length > 0 ? (
             <div className="overflow-hidden">
               <table className="table">
                 <thead className="table-header">
@@ -172,7 +176,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="table-body">
-                  {recentOrders.map((order: any) => (
+                  {recentOrdersTable.map((order: any) => (
                     <tr key={order.order_id} className="table-row">
                       <td className="table-cell">
                         <div className="text-sm font-medium text-gray-900">
@@ -193,15 +197,17 @@ const Dashboard = () => {
                         </div>
                       </td>
                       <td className="table-cell">
-                        <span className={`badge ${order.shipping_status === 'M' ? 'badge-info' :
-                          order.shipping_status === 'D' || order.shipping_status === 'T' ? 'badge-success' :
-                            order.shipping_status === 'C' ? 'badge-danger' :
-                              'badge-warning'
+                        <span className={`badge ${order.shipping_status === 'F' ? 'badge-warning' :
+                          order.shipping_status === 'M' ? 'badge-info' :
+                            order.shipping_status === 'D' || order.shipping_status === 'T' ? 'badge-success' :
+                              order.shipping_status === 'C' ? 'badge-danger' :
+                                'badge-warning'
                           }`}>
-                          {order.shipping_status === 'M' ? '배송중' :
-                            order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
-                              order.shipping_status === 'C' ? '취소' :
-                                order.shipping_status || '-'}
+                          {order.shipping_status === 'F' ? '배송전' :
+                            order.shipping_status === 'M' ? '배송중' :
+                              order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
+                                order.shipping_status === 'C' ? '취소' :
+                                  order.shipping_status || '-'}
                         </span>
                       </td>
                       <td className="table-cell">

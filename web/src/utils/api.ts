@@ -112,6 +112,7 @@ export interface OrderStats {
     shipping: number
     delivered: number
     returned: number
+    preparing: number
     cancelled: number
   }
 }
@@ -134,7 +135,7 @@ export const ordersApi = {
     api.get(`/api/orders/${orderId}/tracking`).then(res => res.data),
 
   // 주문 통계 조회
-  getOrderStats: (params?: { start_date?: string; end_date?: string }): Promise<ApiResponse<{ data: OrderStats }>> =>
+  getOrderStats: (params?: { start_date?: string; end_date?: string }): Promise<ApiResponse<OrderStats>> =>
     api.get('/api/orders/stats/summary', { params }).then(res => res.data),
 
   // 송장번호 업데이트

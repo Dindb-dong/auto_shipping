@@ -218,29 +218,31 @@ router.get('/stats/summary', async (req: Request, res: Response) => {
     const finalStartDate = start_date || defaultStartDate.toISOString().split('T')[0];
     const finalEndDate = end_date || defaultEndDate.toISOString().split('T')[0];
 
-    // 각 배송 상태별로 주문 조회
-    const statusMapping = {
-      'preparing': 'F',     // 배송전
-      'shipping': 'M',      // 배송중
-      'delivered': 'D',     // 배송완료
-      'returned': 'R',      // 반품
-      'cancelled': 'C'      // 취소
-    };
-    const stats: Record<string, number> = {};
+    // 한 번 조회 후 로컬에서 상태별 카운트 집계
+    const allOrdersResp: any = await cafe24Client.getOrders(mallId, accessToken, {
+      start_date: finalStartDate,
+      end_date: finalEndDate,
+      limit: 100,
+      offset: 0
+    });
 
-    for (const [statusKey, cafe24Status] of Object.entries(statusMapping)) {
-      try {
-        const orders: any = await cafe24Client.getOrders(mallId, accessToken, {
-          start_date: finalStartDate,
-          end_date: finalEndDate,
-          status: cafe24Status,
-          limit: 1
-        });
-        stats[statusKey] = orders.total_count || 0;
-      } catch (error) {
-        console.warn(`Failed to fetch stats for status ${statusKey}:`, error);
-        stats[statusKey] = 0;
-      }
+    const ordersList: any[] = Array.isArray(allOrdersResp.orders) ? allOrdersResp.orders : [];
+
+    const stats: Record<string, number> = {
+      preparing: 0,
+      shipping: 0,
+      delivered: 0,
+      returned: 0,
+      cancelled: 0,
+    };
+
+    for (const order of ordersList) {
+      const s = order.shipping_status;
+      if (s === 'F') stats.preparing += 1;       // 배송전
+      else if (s === 'M') stats.shipping += 1;   // 배송중
+      else if (s === 'D' || s === 'T') stats.delivered += 1; // 배송완료
+      else if (s === 'R') stats.returned += 1;   // 반품
+      else if (s === 'C') stats.cancelled += 1;  // 취소
     }
 
     res.json({

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from 'react-query'
-import { Search, Download, RefreshCw, Package, MapPin, X } from 'lucide-react'
+import { Search, Download, RefreshCw, Package, X } from 'lucide-react' // MapPin
 import { ordersApi } from '../utils/api'
 import { formatDate } from '../utils/helpers'
 import { SORT_OPTIONS, SHIPPING_STATUS_LABELS, SHIPPING_COMPANIES } from '../utils/constants'
@@ -65,16 +65,17 @@ const Orders = () => {
   const handleExport = () => {
     // CSV 내보내기 로직
     const csvContent = [
-      ['주문번호', '고객명', '이메일', '주문일시', '상태', '배송지', '송장번호'].join(','),
+      ['주문번호', '고객명', '이메일', '주문일시', '상태', '송장번호'].join(','),
       ...filteredOrders.map((order: any) => [
         order.order_id,
         order.billing_name || '-',
         order.member_email || '-',
         formatDate(order.order_date),
-        order.shipping_status === 'M' ? '배송중' :
-          order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
-            order.shipping_status === 'C' ? '취소' :
-              order.shipping_status || '-',
+        order.shipping_status === 'F' ? '배송전' :
+          order.shipping_status === 'M' ? '배송중' :
+            order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
+              order.shipping_status === 'C' ? '취소' :
+                order.shipping_status || '-',
         `${order.shipping_address?.city || '-'} ${order.shipping_address?.address1 || '-'}`,
         order.tracking_no || order.shipments?.[0]?.tracking_no || '-'
       ].join(','))
@@ -123,14 +124,16 @@ const Orders = () => {
       const companyName = SHIPPING_COMPANIES.find(c => c.code === selectedCompany)?.name || '알 수 없음'
       alert(`송장번호 ${trackingNumber}가 ${companyName}으로 입력되었습니다.`)
 
-      // 배송상태도 배송중으로 변경할지 확인
-      const confirmStatus = window.confirm('배송상태를 배송중으로 변경하시겠습니까?')
-      if (confirmStatus) {
-        try {
-          await ordersApi.updateShippingStatus(selectedOrder.order_id, { status: 'shipping' })
-        } catch (e: any) {
-          console.error('배송상태 업데이트 실패:', e)
-          alert(`배송상태 업데이트에 실패했습니다: ${e.response?.data?.message || e.message}`)
+      // 배송전(F) 상태인 경우에만 상태 변경 확인창 표시
+      if (selectedOrder.shipping_status === 'F') {
+        const confirmStatus = window.confirm('배송상태를 배송중으로 변경하시겠습니까?')
+        if (confirmStatus) {
+          try {
+            await ordersApi.updateShippingStatus(selectedOrder.order_id, { status: 'shipping' })
+          } catch (e: any) {
+            console.error('배송상태 업데이트 실패:', e)
+            alert(`배송상태 업데이트에 실패했습니다: ${e.response?.data?.message || e.message}`)
+          }
         }
       }
 
@@ -272,7 +275,6 @@ const Orders = () => {
                     <th className="table-header-cell">주문번호</th>
                     <th className="table-header-cell">고객 정보</th>
                     <th className="table-header-cell">주문일시</th>
-                    <th className="table-header-cell">배송지</th>
                     <th className="table-header-cell">상태</th>
                     <th className="table-header-cell">송장번호</th>
                     <th className="table-header-cell">작업</th>
@@ -299,7 +301,7 @@ const Orders = () => {
                           {formatDate(order.order_date)}
                         </div>
                       </td>
-                      <td className="table-cell">
+                      {/* <td className="table-cell">
                         <div className="flex items-center text-sm text-gray-900">
                           <MapPin className="h-4 w-4 text-gray-400 mr-1" />
                           <div>
@@ -309,17 +311,20 @@ const Orders = () => {
                             </div>
                           </div>
                         </div>
-                      </td>
+                      </td> */}
                       <td className="table-cell">
-                        <span className={`badge ${order.shipping_status === 'M' ? 'badge-info' :
-                          order.shipping_status === 'D' || order.shipping_status === 'T' ? 'badge-success' :
-                            order.shipping_status === 'C' ? 'badge-danger' :
-                              'badge-warning'
+                        <span className={`badge ${order.shipping_status === 'F' ? 'badge-warning' :
+                          order.shipping_status === 'M' ? 'badge-info' :
+                            order.shipping_status === 'D' || order.shipping_status === 'T' ? 'badge-success' :
+                              order.shipping_status === 'C' ? 'badge-danger' :
+                                'badge-warning'
                           }`}>
-                          {order.shipping_status === 'M' ? '배송중' :
-                            order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
-                              order.shipping_status === 'C' ? '취소' :
-                                order.shipping_status || '-'}
+                          {
+                            order.shipping_status === 'F' ? '배송전' :
+                              order.shipping_status === 'M' ? '배송중' :
+                                order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
+                                  order.shipping_status === 'C' ? '취소' :
+                                    order.shipping_status || '-'}
                         </span>
                       </td>
                       <td className="table-cell">
