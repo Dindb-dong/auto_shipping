@@ -138,21 +138,10 @@ router.get('/:orderId', async (req: Request, res: Response) => {
     // 유효한 액세스 토큰 가져오기
     const accessToken = await getValidAccessTokenForMall(mallId);
 
-    // 카페24에서 특정 주문 조회
-    const response = await fetch(`https://${mallId}.cafe24api.com/api/v2/admin/orders/${orderId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'X-Cafe24-Api-Version': '2025-06-01',
-      },
+    // 카페24에서 특정 주문 조회 (401 시 자동 토큰 갱신 및 재시도)
+    const order: any = await cafe24Client.callApiWithToken(mallId, `/admin/orders/${orderId}`, {
+      method: 'GET'
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Order fetch failed: ${error}`);
-    }
-
-    const order: any = await response.json();
 
     res.json({
       success: true,

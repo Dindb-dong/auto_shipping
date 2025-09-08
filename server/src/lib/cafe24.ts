@@ -136,23 +136,13 @@ export class Cafe24Client {
       payload
     });
 
-    const response = await fetch(`${baseUrl}/admin/orders/${orderId}/shipments`, {
+    const data = await this.callApiWithToken(mallId, `/admin/orders/${orderId}/shipments`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Cafe24-Api-Version': '2025-06-01',
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('❌ Cafe24 Shipment Creation Error:', error);
-      throw new Error(`Shipment creation failed: ${error}`);
-    }
-
-    const data = await response.json();
     console.log('✅ Cafe24 Shipment Creation Response:', data);
     return data;
   }
@@ -169,21 +159,9 @@ export class Cafe24Client {
       url: `${baseUrl}/admin/orders/${orderId}/shipments`
     });
 
-    const response = await fetch(`${baseUrl}/admin/orders/${orderId}/shipments`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'X-Cafe24-Api-Version': '2025-06-01',
-      },
+    const data = await this.callApiWithToken(mallId, `/admin/orders/${orderId}/shipments`, {
+      method: 'GET'
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('❌ Cafe24 Shipments Get Error:', error);
-      throw new Error(`Shipments fetch failed: ${error}`);
-    }
-
-    const data = await response.json();
     console.log('✅ Cafe24 Shipments Get Response:', data);
     return data;
   }
@@ -251,21 +229,9 @@ export class Cafe24Client {
       params: Object.fromEntries(searchParams)
     });
 
-    const response = await fetch(`${baseUrl}/admin/orders?${searchParams}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'X-Cafe24-Api-Version': '2025-06-01',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('❌ Cafe24 Orders API Error:', error);
-      throw new Error(`Orders fetch failed: ${error}`);
-    }
-
-    const data = await response.json() as any;
+    const data = await this.callApiWithToken(mallId, `/admin/orders?${searchParams}`, {
+      method: 'GET'
+    }) as any;
     console.log('✅ Cafe24 Orders API Response:', {
       total_count: data.orders?.length || 0,
       orders_preview: data.orders?.slice(0, 3).map((order: any) => ({
