@@ -69,14 +69,15 @@ const Dashboard = () => {
   // 최근 주문에서 상태를 집계하여 카드에 표시 (서버 통계 대신 신뢰 가능한 클라이언트 계산)
   const recentOrders = (recentOrdersData?.data as any) || []
   const stats = recentOrders.reduce((acc: any, order: any) => {
+    const c = order?.canceled
+    if (c === 'T') acc.canceled += 1
     const s = order?.shipping_status
-    if (s === 'F') acc.preparing += 1
-    else if (s === 'M') acc.shipping += 1
+    if (s === 'F' && c !== 'T') acc.preparing += 1
+    else if (s === 'M' && c !== 'T') acc.shipping += 1
     else if (s === 'D' || s === 'T') acc.delivered += 1
-    else if (s === 'R') acc.returned += 1
-    else if (s === 'C') acc.cancelled += 1
+    else if (s === 'R' && c !== 'T') acc.returned += 1
     return acc
-  }, { preparing: 0, shipping: 0, delivered: 0, returned: 0, cancelled: 0 } as { [k: string]: number })
+  }, { preparing: 0, shipping: 0, delivered: 0, returned: 0, canceled: 0 } as { [k: string]: number })
 
   const recentOrdersTable = (recentOrdersData?.data as any) || []
 
@@ -111,7 +112,7 @@ const Dashboard = () => {
     },
     {
       name: '취소',
-      value: stats.cancelled,
+      value: stats.canceled,
       icon: XCircle,
       color: 'text-red-600',
       bgColor: 'bg-red-100',
@@ -197,17 +198,19 @@ const Dashboard = () => {
                         </div>
                       </td>
                       <td className="table-cell">
-                        <span className={`badge ${order.shipping_status === 'F' ? 'badge-warning' :
-                          order.shipping_status === 'M' ? 'badge-info' :
-                            order.shipping_status === 'D' || order.shipping_status === 'T' ? 'badge-success' :
-                              order.shipping_status === 'C' ? 'badge-danger' :
-                                'badge-warning'
+                        <span className={`badge ${order.canceled === 'T' ? 'badge-danger' :
+                          order.shipping_status === 'F' ? 'badge-warning' :
+                            order.shipping_status === 'M' ? 'badge-info' :
+                              order.shipping_status === 'D' || order.shipping_status === 'T' ? 'badge-success' :
+                                order.shipping_status === 'C' ? 'badge-danger' :
+                                  'badge-warning'
                           }`}>
-                          {order.shipping_status === 'F' ? '배송전' :
-                            order.shipping_status === 'M' ? '배송중' :
-                              order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
-                                order.shipping_status === 'C' ? '취소' :
-                                  order.shipping_status || '-'}
+                          {order.canceled === 'T' ? '취소' :
+                            order.shipping_status === 'F' ? '배송전' :
+                              order.shipping_status === 'M' ? '배송중' :
+                                order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
+                                  order.shipping_status === 'C' ? '취소' :
+                                    order.shipping_status || '-'}
                         </span>
                       </td>
                       <td className="table-cell">

@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { useQuery } from 'react-query'
 import { Search, RefreshCw, Truck, ExternalLink } from 'lucide-react'
 import { ordersApi } from '../utils/api'
-import { formatDate } from '../utils/helpers'
 import { SHIPPING_COMPANIES } from '../utils/constants'
 
 const Shipments = () => {
@@ -33,19 +32,27 @@ const Shipments = () => {
       if (shipments.length === 0) {
         items.push({
           order_id: order.order_id,
+          billing_name: order.billing_name,
+          member_email: order.member_email,
           order_date: order.order_date,
           tracking_no: undefined,
           shipping_company_code: undefined,
           status: order.shipping_status,
+          canceled: order.canceled,
+          product_no: order.product_code,
         })
       } else {
         for (const s of shipments) {
           items.push({
             order_id: order.order_id,
+            billing_name: order.billing_name,
+            member_email: order.member_email,
             order_date: order.order_date,
             tracking_no: s.tracking_no,
             shipping_company_code: s.shipping_company_code,
             status: s.status || order.shipping_status,
+            canceled: order.canceled,
+            product_no: s.product_no || order.product_code,
           })
         }
       }
@@ -63,16 +70,23 @@ const Shipments = () => {
     )
   })
 
-  const handleOpenTracking = async (orderId: string) => {
+  const handleOpenTracking = async (row: any) => {
+    console.log(row);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/orders/${encodeURIComponent(orderId)}/tracking`)
-      const json = await res.json()
-      const url = json?.data?.tracking?.url
-      if (url) {
-        window.open(url, '_blank', 'noopener,noreferrer')
-      } else {
-        alert('추적 URL을 찾을 수 없습니다. 송장번호 또는 배송사 코드를 확인해주세요.')
+      const { order_id, tracking_no } = row || {}
+      let product_no = row.product_no
+      try {
+        const { data } = await ordersApi.getOrderProductCode(order_id)
+        product_no = data?.data || ''
+      } catch (e: any) {
+        alert(`배송조회 실패: ${e.message}`)
       }
+      if (!order_id || !tracking_no) {
+        alert('주문번호 또는 송장번호가 없습니다.')
+        return
+      }
+      const traceUrl = `https://alushealthcare01.cafe24.com/common/delivery_trace.php?order_id=${encodeURIComponent(order_id)}&product_no=${encodeURIComponent(product_no || '')}&opt_id=000A&invoice_no=${encodeURIComponent(tracking_no)}`
+      window.open(traceUrl, '_blank', 'noopener,noreferrer')
     } catch (e: any) {
       alert(`배송조회 실패: ${e.message}`)
     }
@@ -153,7 +167,7 @@ const Shipments = () => {
                 <thead className="table-header">
                   <tr>
                     <th className="table-header-cell">주문번호</th>
-                    <th className="table-header-cell">주문일시</th>
+                    <th className="table-header-cell">고객 정보</th>
                     <th className="table-header-cell">송장번호</th>
                     <th className="table-header-cell">배송업체</th>
                     <th className="table-header-cell">상태</th>
@@ -167,7 +181,8 @@ const Shipments = () => {
                         <div className="text-sm font-medium text-gray-900">{r.order_id}</div>
                       </td>
                       <td className="table-cell">
-                        <div className="text-sm text-gray-900">{formatDate(r.order_date)}</div>
+                        <div className="text-sm text-gray-900">{r.billing_name || '-'}</div>
+                        <div className="text-sm text-gray-500">{r.member_email || '-'}</div>
                       </td>
                       <td className="table-cell">
                         {r.tracking_no ? (
@@ -180,14 +195,22 @@ const Shipments = () => {
                         <div className="text-sm text-gray-900">{convertedShippingCompanyCode(r.shipping_company_code)}</div>
                       </td>
                       <td className="table-cell">
-                        <span className={`badge ${r.status === 'shipping' || r.status === 'M' ? 'badge-info' : r.status === 'delivered' || r.status === 'D' || r.status === 'T' ? 'badge-success' : r.status === 'C' ? 'badge-danger' : 'badge-warning'}`}>
-                          {r.status || '-'}
+                        <span className={`badge ${r.canceled === 'T' ? 'badge-danger' :
+                          r.status === 'F' ? 'badge-warning' :
+                            r.status === 'M' ? 'badge-info' :
+                              r.status === 'D' || r.status === 'T' ? 'badge-success' :
+                                r.status === 'C' ? 'badge-danger' : 'badge-warning'}`}>
+                          {r.canceled === 'T' ? '취소' :
+                            r.status === 'F' ? '배송전' :
+                              r.status === 'M' ? '배송중' :
+                                r.status === 'D' || r.status === 'T' ? '배송완료' :
+                                  r.status === 'C' ? '취소' : (r.status || '-')}
                         </span>
                       </td>
                       <td className="table-cell">
                         <div className="flex items-center space-x-2">
                           <button
-                            onClick={() => handleOpenTracking(r.order_id)}
+                            onClick={() => handleOpenTracking(r)}
                             className="text-primary-600 hover:text-primary-900 text-sm inline-flex items-center"
                             disabled={!r.tracking_no}
                           >

@@ -159,6 +159,46 @@ router.get('/:orderId', async (req: Request, res: Response) => {
   }
 });
 
+// 특정 주문의 아이템 목록 조회 (product_no/product_code 추출용)
+router.get('/:orderId/items', async (req: Request, res: Response) => {
+  try {
+    const { orderId } = req.params;
+
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Order ID is required'
+      });
+    }
+
+    const mallId = process.env.MALL_ID;
+    if (!mallId) {
+      throw new Error('MALL_ID environment variable is required');
+    }
+
+    const accessToken = await getValidAccessTokenForMall(mallId);
+
+    // 카페24 주문 아이템 API 호출
+    const itemsResp: any = await cafe24Client.callApiWithToken(mallId, `/admin/orders/${orderId}/items`, {
+      method: 'GET'
+    });
+
+    const items: any[] = Array.isArray(itemsResp?.items) ? itemsResp.items : [];
+    const primary = items[0] || null;
+
+    res.json({
+      success: true,
+      data: {
+        items,
+        primary_product_no: primary?.product_no ?? null,
+      }
+    });
+  } catch (error: any) {
+    console.error('Order items fetch error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch order items', message: error.message });
+  }
+});
+
 // 주문의 배송 로그 조회
 router.get('/:orderId/shipments', async (req: Request, res: Response) => {
   try {

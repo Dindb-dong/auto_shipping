@@ -71,11 +71,12 @@ const Orders = () => {
         order.billing_name || '-',
         order.member_email || '-',
         formatDate(order.order_date),
-        order.shipping_status === 'F' ? '배송전' :
-          order.shipping_status === 'M' ? '배송중' :
-            order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
-              order.shipping_status === 'C' ? '취소' :
-                order.shipping_status || '-',
+        order.canceled === 'T' ? '취소' :
+          order.shipping_status === 'F' ? '배송전' :
+            order.shipping_status === 'M' ? '배송중' :
+              order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
+                order.shipping_status === 'C' ? '취소' :
+                  order.shipping_status || '-',
         `${order.shipping_address?.city || '-'} ${order.shipping_address?.address1 || '-'}`,
         order.tracking_no || order.shipments?.[0]?.tracking_no || '-'
       ].join(','))
@@ -313,13 +314,14 @@ const Orders = () => {
                         </div>
                       </td> */}
                       <td className="table-cell">
-                        <span className={`badge ${order.shipping_status === 'F' ? 'badge-warning' :
-                          order.shipping_status === 'M' ? 'badge-info' :
-                            order.shipping_status === 'D' || order.shipping_status === 'T' ? 'badge-success' :
-                              order.shipping_status === 'C' ? 'badge-danger' :
-                                'badge-warning'
+                        <span className={`badge ${order.canceled === 'T' ? 'badge-danger' :
+                          order.shipping_status === 'F' ? 'badge-warning' :
+                            order.shipping_status === 'M' ? 'badge-info' :
+                              order.shipping_status === 'D' || order.shipping_status === 'T' ? 'badge-success' :
+                                order.shipping_status === 'C' ? 'badge-danger' :
+                                  'badge-warning'
                           }`}>
-                          {
+                          {order.canceled === 'T' ? '취소' :
                             order.shipping_status === 'F' ? '배송전' :
                               order.shipping_status === 'M' ? '배송중' :
                                 order.shipping_status === 'D' || order.shipping_status === 'T' ? '배송완료' :
