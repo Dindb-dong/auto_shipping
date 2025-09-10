@@ -126,10 +126,6 @@ export const ordersApi = {
   getOrder: (orderId: string): Promise<ApiResponse<{ data: Order }>> =>
     api.get(`/api/orders/${orderId}`).then(res => res.data),
 
-  // 특정 주문의 상품코드 조회
-  getOrderProductCode: (orderId: string): Promise<ApiResponse<{ data: string }>> =>
-    api.get(`/api/orders/${orderId}/items`).then(res => res.data),
-
   // 주문의 배송 로그 조회
   getOrderShipments: (orderId: string): Promise<ApiResponse<{ data: any[] }>> =>
     api.get(`/api/orders/${orderId}/shipments`).then(res => res.data),
@@ -137,6 +133,10 @@ export const ordersApi = {
   // 주문의 실시간 배송 조회 (추적 URL 포함)
   getOrderTracking: (orderId: string): Promise<ApiResponse<{ data: { order_id: string; shipments: any[]; tracking: { tracking_no: string; shipping_company_code: string; carrier?: string; status?: string; url?: string } } }>> =>
     api.get(`/api/orders/${orderId}/tracking`).then(res => res.data),
+
+  // 주문 아이템에서 대표 product_no 조회
+  getOrderProductCode: (orderId: string): Promise<ApiResponse<{ items: any[]; primary_product_no: number | null }>> =>
+    api.get(`/api/orders/${orderId}/items`).then(res => res.data),
 
   // 주문 통계 조회
   getOrderStats: (params?: { start_date?: string; end_date?: string }): Promise<ApiResponse<OrderStats>> =>

@@ -77,7 +77,7 @@ const Shipments = () => {
       let product_no = row.product_no
       try {
         const { data } = await ordersApi.getOrderProductCode(order_id)
-        product_no = data?.data || ''
+        product_no = data?.primary_product_no || ''
       } catch (e: any) {
         alert(`배송조회 실패: ${e.message}`)
       }
